@@ -4,6 +4,8 @@ import { UpdatePokerDto } from './dto/update-poker.dto';
 
 @Injectable()
 export class PokerService {
+  //TODO: Recuerde importar db en el servicio -> /src/db/db.ts
+
   create(createPokerDto: CreatePokerDto) {
     return 'This action adds a new poker';
   }
