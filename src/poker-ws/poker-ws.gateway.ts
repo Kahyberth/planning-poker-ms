@@ -55,15 +55,18 @@ export class PokerWsGateway
 
     try {
       const cookies = client.handshake.headers.cookie;
-      const response = await axios.get(`${envs.ORIGIN_CORS}/api/auth/verify`, {
-        withCredentials: true,
-        headers: {
-          Cookie: cookies,
+      const response = await axios.get(
+        `${envs.CLIENT_GATEWAY_URL}/api/auth/verify`,
+        {
+          withCredentials: true,
+          headers: {
+            Cookie: cookies,
+          },
         },
-      });
+      );
 
       const user = await axios.post(
-        `${envs.ORIGIN_CORS}/api/auth/find/${cookies}`,
+        `${envs.CLIENT_GATEWAY_URL}/api/auth/find/${cookies}`,
       );
 
       console.log('user', user.status, 'response', response.status);
