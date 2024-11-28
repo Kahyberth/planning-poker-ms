@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { CreatePokerDto } from './dto/create-poker.dto';
 import { UpdatePokerDto } from './dto/update-poker.dto';
+import db from 'src/db/db';
 
 @Injectable()
 export class PokerService {
-  //TODO: Recuerde importar db en el servicio -> /src/db/db.ts
-
   create(createPokerDto: CreatePokerDto) {
+      //TODO: Aqui tiene que hacer algo para conectarlo con Nats.io y que funcione con microservicios!!!!
+      //TODO: Recuerde usar db que es para conectarse a la base de datos y hacer las operaciones necesarias
     return 'This action adds a new poker';
   }
 
