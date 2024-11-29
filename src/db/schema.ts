@@ -4,9 +4,9 @@ import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 export const sessionsTable = pgTable('sessions', {
   id: text('id').primaryKey(),
   sessions_name: text('title').notNull(),
-  created_at: text('content').notNull(),
+  created_at: timestamp('content').notNull(),
   updated_at: timestamp('created_at').notNull().defaultNow(),
-  created_by: integer('user_id').notNull(),
+  created_by: text('user_id').notNull(),
 });
 
 export const estimatesTable = pgTable('estimates', {
