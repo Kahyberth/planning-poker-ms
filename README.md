@@ -10,8 +10,8 @@
 
 ---
 
-
 ## 🚀 Características
+
 - **NestJS**: Framework modular y escalable.
 - **Docker Compose**: Para contenedores y orquestación.
 - **NATS**: Mensajería eficiente para comunicación entre microservicios.
@@ -20,46 +20,54 @@
 ---
 
 ## 🛠️ Requisitos previos
+
 Asegúrate de tener instalados los siguientes elementos en tu máquina:
+
 - [Node.js](https://nodejs.org/) (v16 o superior recomendado)
 - [Docker](https://www.docker.com/)
 - [Docker Compose](https://docs.docker.com/compose/)
-- [Redis](https://redis.io/)
+- [TypeORM](https://typeorm.io/)
 
 ---
 
 ## 📦 Instalación
+
 Sigue estos pasos para configurar el entorno local:
 
 1. Clona el repositorio:
+
    ```bash
    git clone <URL_DEL_REPOSITORIO>
    cd <NOMBRE_DEL_REPOSITORIO>
 
+   ```
+
 2. Ejecuta el siguiente comando para instalar las dependencias
- ```` 
- npm install 
- ````
 
-
+```
+npm install
+```
 
 ## 💾 Genera y migra las tablas
+
 Antes de usar el microservicio hay que asegurarse de generar las tablas y despues migrarlas
 
-1. Usa el comando ```npm run db:gen ``` para generar las tablas
+1. Usa el comando `npm run db:gen ` para generar las tablas
 
-2. Usa el comando ```npm run db:migrate``` para migrar las tablas
-
+2. Usa el comando `npm run db:migrate` para migrar las tablas
 
 ## 🖥️ Uso
+
 Asegúrate de estar dentro de la carpeta del proyecto
 
 1. Levanta el servidor Nats
-````
- docker-compose run -d 
- ````
+
+```
+ docker-compose run -d
+```
 
 2. Ejecuta el comando para correr el microservicio
-````
+
+```
   npm run start:dev
-````
+```

@@ -11,6 +11,7 @@ import { Server } from 'socket.io';
 import axios from 'axios';
 import * as md5 from 'md5';
 import { envs } from 'src/commons/envs';
+import { Chat } from '../commons/interfaces/ChatData';
 
 @WebSocketGateway({
   cors: {
@@ -27,7 +28,12 @@ export class PokerWsGateway
   participants_in_room = new Map<string, Map<string, object>>();
 
   handleConnection(client: Socket) {
-    console.log('Client connected', client.id);
+    console.log(
+      'Client connected:',
+      client.id,
+      'with handshake headers:',
+      client.handshake.headers,
+    );
   }
 
   handleDisconnect(client: Socket) {
@@ -85,22 +91,21 @@ export class PokerWsGateway
 
         console.log(`Avatar: ${participant_data.avatar}`);
 
-        // Agregar participante a la sala
         if (!this.participants_in_room.has(room)) {
           this.participants_in_room.set(room, new Map<string, object>());
         }
         this.participants_in_room.get(room).set(client.id, participant_data);
 
-        // Almacenar datos del cliente
         client.data.participant = participant_data;
         client.data.room = room;
 
         client.join(room);
         client.emit('success', { message: 'Joined room successfully' });
 
-        console.log('participant', participant_data);
+        console.log('participant', client.data.participant);
+        console.log('room ->', client.data.room);
+        console.log('client_id ->', client.id);
 
-        // Emitir la lista actualizada de participantes
         this.emitParticipantList(room);
       } else {
         client.emit('error', { message: 'Invalid token' });
@@ -112,7 +117,6 @@ export class PokerWsGateway
   }
 
   private emitParticipantList(room: string) {
-    console.log('room', room);
     const participantsMap = this.participants_in_room.get(room);
     if (participantsMap) {
       const participantsArray = Array.from(participantsMap.values());
@@ -120,11 +124,61 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * TODO: Modificar la función para que reciba los datos desde client.data
+   */
   @SubscribeMessage('send-message')
-  onMessageRecived(client: Socket, message: string) {
-    client.to(client.data.room).emit('message', {
+  onMessageReceived(client: Socket, payload: Chat) {
+    const { message, room } = payload;
+    console.log(payload);
+    client.to(room).emit('message', {
       message,
       sender: client.data.participant,
     });
+  }
+
+  private timers = new Map<
+    string,
+    { timeLeft: number; interval: NodeJS.Timeout }
+  >();
+
+  @SubscribeMessage('start-timer')
+  handleStartTimer(
+    client: Socket,
+    payload: { room: string; duration: number },
+  ) {
+    const { room, duration } = payload;
+
+    if (this.timers.has(room)) {
+      clearInterval(this.timers.get(room).interval);
+    }
+
+    let timeLeft = duration;
+
+    const interval = setInterval(() => {
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        this.wss
+          .to(room)
+          .emit('timer-finished', { message: 'Timer finished!' });
+        this.timers.delete(room);
+      } else {
+        timeLeft -= 1;
+        this.wss.to(room).emit('timer-update', { timeLeft });
+      }
+    }, 1000);
+
+    this.timers.set(room, { timeLeft, interval });
+    this.wss.to(room).emit('timer-started', { timeLeft });
+  }
+
+  @SubscribeMessage('stop-timer')
+  handleStopTimer(client: Socket, payload: { room: string }) {
+    const { room } = payload;
+    if (this.timers.has(room)) {
+      clearInterval(this.timers.get(room).interval);
+      this.timers.delete(room);
+      this.wss.to(room).emit('timer-stopped', { message: 'Timer stopped.' });
+    }
   }
 }

@@ -1,14 +1,27 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { Logger } from '@nestjs/common';
 import { envs } from './commons/envs';
 
 async function bootstrap() {
-  //TODO: Aqui tiene que hacer algo para conectarlo con Nats.io y que funcione con microservicios!!!!
-  const app = await NestFactory.create(AppModule);
-  app.enableCors({
-    origin: envs.ORIGIN_CORS,
-    credentials: true,
+  const logger = new Logger('Poker-ms');
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.NATS,
+      options: {
+        servers: ['nats://localhost:4222'],
+      },
+    },
+  );
+  await app.listen().then(() => {
+    logger.log(`Poker-ms is listening on ${envs.PORT}`);
   });
-  await app.listen(8080);
+
+  const ws = await NestFactory.create(AppModule);
+  await ws.listen(envs.WS_PORT).then(() => {
+    logger.log(`Poker-websockets is listening on ${envs.WS_PORT}`);
+  });
 }
 bootstrap();
