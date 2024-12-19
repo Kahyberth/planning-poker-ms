@@ -31,9 +31,6 @@ export class UserSession {
   @CreateDateColumn({ type: 'timestamp' })
   joined_at: Date;
 
-  @Column()
-  history_id: string;
-
   @ManyToOne(() => Session, (session) => session.user_sessions, {
     onDelete: 'CASCADE',
   })

@@ -8,20 +8,28 @@ import {
 import { UserSession } from './user.session.entity';
 import { SessionDeck } from './session.deck.entity';
 import { Story } from './story.entity';
+import { SessionStatus } from 'src/commons/enums/poker.enums';
 
 @Entity()
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   session_id: string;
 
-  @Column()
+  @Column('text', {
+    unique: true,
+  })
   session_name: string;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
-  @Column()
+  @Column('text')
   created_by: string;
+
+  @Column('text', {
+    nullable: true,
+  })
+  description?: string;
 
   @Column({ default: true })
   is_active: boolean;
@@ -35,6 +43,13 @@ export class Session {
     unique: true,
   })
   session_code?: string;
+
+  @Column({
+    type: 'enum',
+    enum: SessionStatus,
+    default: SessionStatus.WAITING,
+  })
+  status: SessionStatus;
 
   @OneToMany(() => UserSession, (userSession) => userSession.session)
   user_sessions: UserSession[];

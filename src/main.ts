@@ -20,6 +20,7 @@ async function bootstrap() {
   });
 
   const ws = await NestFactory.create(AppModule);
+  ws.enableCors();
   await ws.listen(envs.WS_PORT).then(() => {
     logger.log(`Poker-websockets is listening on ${envs.WS_PORT}`);
   });
