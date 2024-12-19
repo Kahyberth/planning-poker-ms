@@ -12,3 +12,8 @@ export interface joinSession {
   session_id: string;
   user_id: string;
 }
+
+export interface joinSessionByCode {
+  session_code: string;
+  user_id: string;
+}

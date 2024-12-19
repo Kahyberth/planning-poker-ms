@@ -7,6 +7,8 @@ import { Session } from './entities/session.entity';
 import { SessionStatus } from 'src/commons/enums/poker.enums';
 import { getSessions } from 'src/commons/interfaces/Sessions';
 import { SessionRole, UserSession } from './entities/user.session.entity';
+import { nanoid } from 'nanoid';
+
 @Injectable()
 export class PokerService {
   constructor(
@@ -22,8 +24,6 @@ export class PokerService {
       const { created_by, session_name, session_code, description } =
         createPokerDto;
 
-      console.log('Creating room...');
-
       const isSession = await this.sessionRepository.findOne({
         where: {
           is_active: true,
@@ -38,7 +38,29 @@ export class PokerService {
         });
       }
 
-      const newSession = this.sessionRepository.create({
+      let newSession: Session;
+
+      if (!session_code) {
+        console.log('Creating room without code');
+
+        newSession = this.sessionRepository.create({
+          created_by,
+          session_name,
+          created_at: new Date(),
+          session_code: nanoid(),
+          description,
+        });
+
+        console.log('New session:', newSession.session_code);
+
+        const savedSession = await this.sessionRepository.save(newSession);
+        return {
+          message: 'Room created successfully',
+          data: savedSession,
+        };
+      }
+
+      newSession = this.sessionRepository.create({
         created_by,
         session_name,
         created_at: new Date(),
@@ -116,6 +138,87 @@ export class PokerService {
         error: error.message,
       });
     }
+  }
+
+  async joinRoom(session_id: string, user_id: string) {
+    try {
+      const session = await this.sessionRepository.findOne({
+        where: { session_id, is_active: true },
+        relations: ['user_sessions'],
+      });
+
+      if (!session) {
+        throw new RpcException({
+          message: 'Room not found or inactive',
+          code: HttpStatus.NOT_FOUND,
+        });
+      }
+
+      const userAlreadyInSession = session.user_sessions.some(
+        (userSession) => userSession.user_id === user_id,
+      );
+
+      if (userAlreadyInSession) {
+        return {
+          message: 'User already joined the session',
+          data: {
+            session_id: session.session_id,
+            user_id,
+          },
+        };
+      }
+
+      const newUserSession = this.userSessionRepository.create({
+        user_id,
+        session_id: session.session_id,
+        session_role: SessionRole.MEMBER,
+      });
+
+      await this.userSessionRepository.save(newUserSession);
+
+      return {
+        message: 'User joined the room successfully',
+        data: {
+          session_id: session.session_id,
+          user_id,
+          session_name: session.session_name,
+          session_role: SessionRole.MEMBER,
+        },
+      };
+    } catch (error) {
+      console.error('Error joining room:', error);
+
+      throw new RpcException({
+        message: 'Error joining the room',
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  }
+
+  async verifyUserInSession(session_id: string, user_id: string) {
+    const session = await this.userSessionRepository.findOne({
+      where: { session_id, user_id },
+    });
+
+    if (session === null) {
+      console.log('User not in session');
+      throw new RpcException({
+        message: 'Room not found or inactive',
+        code: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    if (!session) {
+      throw new RpcException({
+        message: 'User not in session',
+        code: HttpStatus.NOT_FOUND,
+      });
+    }
+    return {
+      message: 'User verified in session',
+      data: session,
+    };
   }
 
   async getAllRooms() {

@@ -1,8 +1,11 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { PokerService } from './poker.service';
 import { CreatePokerDto } from './dto/create-poker.dto';
-import { joinSession } from 'src/commons/interfaces/Sessions';
+import {
+  joinSession,
+  joinSessionByCode,
+} from 'src/commons/interfaces/Sessions';
 
 @Controller()
 export class PokerController {
@@ -13,10 +16,16 @@ export class PokerController {
     return this.pokerService.createRoom(createPokerDto);
   }
 
+  @MessagePattern('poker.join.session.code')
+  joinRoomByCode(@Payload() data: joinSessionByCode) {
+    const { user_id, session_code } = data;
+    return this.pokerService.joinRoomByCode(session_code, user_id);
+  }
+
   @MessagePattern('poker.join.session')
-  join(@Payload() data: joinSession) {
+  joinRoom(@Payload() data: joinSession) {
     const { session_id, user_id } = data;
-    return this.pokerService.joinRoomByCode(session_id, user_id);
+    return this.pokerService.joinRoom(session_id, user_id);
   }
 
   @MessagePattern('poker.get.session')
@@ -27,5 +36,19 @@ export class PokerController {
   @MessagePattern('start.session')
   startSession(@Payload() session_code: string) {
     return this.pokerService.startSession(session_code);
+  }
+
+  @MessagePattern('poker.verify.user')
+  async verifyUser(@Payload() data: any) {
+    const { session_id, user_id } = data;
+    return this.pokerService
+      .verifyUserInSession(session_id, user_id)
+      .catch((err) => {
+        console.error('Error verifying user in session:', err);
+        throw new RpcException({
+          message: 'User not in session',
+          code: 404,
+        });
+      });
   }
 }
