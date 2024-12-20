@@ -7,7 +7,7 @@ import { Session } from './entities/session.entity';
 import { SessionStatus } from 'src/commons/enums/poker.enums';
 import { getSessions } from 'src/commons/interfaces/Sessions';
 import { SessionRole, UserSession } from './entities/user.session.entity';
-import { nanoid } from 'nanoid';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PokerService {
@@ -47,7 +47,7 @@ export class PokerService {
           created_by,
           session_name,
           created_at: new Date(),
-          session_code: nanoid(),
+          session_code: uuidv4(),
           description,
         });
 
