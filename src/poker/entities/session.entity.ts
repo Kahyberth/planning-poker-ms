@@ -2,13 +2,16 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToMany,
   CreateDateColumn,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
-import { UserSession } from './user.session.entity';
-import { SessionDeck } from './session.deck.entity';
-import { Story } from './story.entity';
-import { SessionStatus } from 'src/commons/enums/poker.enums';
+
+import { SessionStatus, VotingScale } from 'src/commons/enums/poker.enums';
+import { Join_Session } from './join.session.entity';
+import { Vote } from './vote.entity';
+import { Chat } from './chat.entity';
 
 @Entity()
 export class Session {
@@ -34,9 +37,6 @@ export class Session {
   @Column({ default: true })
   is_active: boolean;
 
-  @Column({ nullable: true })
-  team_name: string;
-
   @Column({
     type: 'text',
     nullable: true,
@@ -46,17 +46,26 @@ export class Session {
 
   @Column({
     type: 'enum',
+    enum: VotingScale,
+    default: VotingScale.FIBONACCI,
+    nullable: true,
+  })
+  voting_scale?: string;
+
+  @Column({
+    type: 'enum',
     enum: SessionStatus,
     default: SessionStatus.WAITING,
   })
   status: SessionStatus;
 
-  @OneToMany(() => UserSession, (userSession) => userSession.session)
-  user_sessions: UserSession[];
+  @OneToMany(() => Join_Session, (join_session) => join_session.session)
+  join_session: Join_Session[];
 
-  @OneToMany(() => SessionDeck, (sessionDeck) => sessionDeck.session)
-  session_decks: SessionDeck[];
+  @OneToMany(() => Vote, (vote) => vote.session)
+  vote: Vote[];
 
-  @OneToMany(() => Story, (story) => story.session)
-  stories: Story[];
+  @OneToOne(() => Chat)
+  @JoinColumn()
+  chat: Chat;
 }

@@ -4,10 +4,9 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RpcException } from '@nestjs/microservices';
 import { Session } from './entities/session.entity';
-import { SessionStatus } from 'src/commons/enums/poker.enums';
-import { getSessions } from 'src/commons/interfaces/Sessions';
-import { SessionRole, UserSession } from './entities/user.session.entity';
+import { VotingScale } from 'src/commons/enums/poker.enums';
 import { v4 as uuidv4 } from 'uuid';
+import { Join_Session } from './entities/join.session.entity';
 
 @Injectable()
 export class PokerService {
@@ -15,14 +14,19 @@ export class PokerService {
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
 
-    @InjectRepository(UserSession)
-    private readonly userSessionRepository: Repository<UserSession>,
+    @InjectRepository(Join_Session)
+    private readonly joinSessionRepository: Repository<Join_Session>,
   ) {}
 
   async createRoom(createPokerDto: CreatePokerDto) {
     try {
-      const { created_by, session_name, session_code, description } =
-        createPokerDto;
+      const {
+        created_by,
+        session_name,
+        session_code,
+        voting_scale,
+        description,
+      } = createPokerDto;
 
       const isSession = await this.sessionRepository.findOne({
         where: {
@@ -40,18 +44,15 @@ export class PokerService {
 
       let newSession: Session;
 
-      if (!session_code) {
-        console.log('Creating room without code');
-
+      if (!session_code || session_code === '') {
         newSession = this.sessionRepository.create({
           created_by,
           session_name,
           created_at: new Date(),
-          session_code: uuidv4(),
+          session_code: 'POKER-' + uuidv4().slice(0, 6).toLocaleUpperCase(),
+          voting_scale: voting_scale || VotingScale.FIBONACCI,
           description,
         });
-
-        console.log('New session:', newSession.session_code);
 
         const savedSession = await this.sessionRepository.save(newSession);
         return {
@@ -64,7 +65,8 @@ export class PokerService {
         created_by,
         session_name,
         created_at: new Date(),
-        session_code,
+        voting_scale: voting_scale || VotingScale.FIBONACCI,
+        session_code: 'POKER-' + session_code.toLocaleUpperCase(),
         description,
       });
 
@@ -87,156 +89,53 @@ export class PokerService {
   async joinRoomByCode(session_code: string, user_id: string) {
     try {
       const session = await this.sessionRepository.findOne({
-        where: { session_code, is_active: true },
-        relations: ['user_sessions'],
+        where: { session_code },
       });
 
       if (!session) {
         throw new RpcException({
-          message: 'Room not found or inactive',
+          message: 'Room not found',
           code: HttpStatus.NOT_FOUND,
         });
       }
 
-      const userAlreadyInSession = session.user_sessions.some(
-        (userSession) => userSession.user_id === user_id,
-      );
-
-      if (userAlreadyInSession) {
-        return {
-          message: 'User already joined the session',
-          data: {
-            session_id: session.session_id,
-            user_id,
-          },
-        };
-      }
-
-      const newUserSession = this.userSessionRepository.create({
-        user_id,
-        session_id: session.session_id,
-        session_role: SessionRole.MEMBER,
-      });
-
-      await this.userSessionRepository.save(newUserSession);
-
-      return {
-        message: 'User joined the room successfully',
-        data: {
-          session_id: session.session_id,
+      const isUserInSession = await this.joinSessionRepository.findOne({
+        where: {
           user_id,
-          session_name: session.session_name,
-          session_role: SessionRole.MEMBER,
         },
-      };
-    } catch (error) {
-      console.error('Error joining room:', error);
-
-      throw new RpcException({
-        message: 'Error joining the room',
-        code: HttpStatus.INTERNAL_SERVER_ERROR,
-        error: error.message,
-      });
-    }
-  }
-
-  async joinRoom(session_id: string, user_id: string) {
-    try {
-      const session = await this.sessionRepository.findOne({
-        where: { session_id, is_active: true },
-        relations: ['user_sessions'],
       });
 
-      if (!session) {
+      if (isUserInSession) {
         throw new RpcException({
-          message: 'Room not found or inactive',
-          code: HttpStatus.NOT_FOUND,
+          message: 'User already in room',
+          code: HttpStatus.CONFLICT,
         });
       }
 
-      const userAlreadyInSession = session.user_sessions.some(
-        (userSession) => userSession.user_id === user_id,
-      );
-
-      if (userAlreadyInSession) {
-        return {
-          message: 'User already joined the session',
-          data: {
-            session_id: session.session_id,
-            user_id,
-          },
-        };
-      }
-
-      const newUserSession = this.userSessionRepository.create({
+      const join_session = this.joinSessionRepository.create({
         user_id,
-        session_id: session.session_id,
-        session_role: SessionRole.MEMBER,
+        joined_at: new Date(),
+        session,
       });
 
-      await this.userSessionRepository.save(newUserSession);
+      await this.joinSessionRepository.save(join_session);
 
       return {
-        message: 'User joined the room successfully',
-        data: {
-          session_id: session.session_id,
-          user_id,
-          session_name: session.session_name,
-          session_role: SessionRole.MEMBER,
-        },
+        message: 'Room joined successfully',
       };
     } catch (error) {
-      console.error('Error joining room:', error);
-
+      console.error(error);
       throw new RpcException({
-        message: 'Error joining the room',
+        message: 'Error joining room',
         code: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
       });
     }
-  }
-
-  async verifyUserInSession(session_id: string, user_id: string) {
-    const session = await this.userSessionRepository.findOne({
-      where: { session_id, user_id },
-    });
-
-    if (session === null) {
-      console.log('User not in session');
-      throw new RpcException({
-        message: 'Room not found or inactive',
-        code: HttpStatus.NOT_FOUND,
-      });
-    }
-
-    if (!session) {
-      throw new RpcException({
-        message: 'User not in session',
-        code: HttpStatus.NOT_FOUND,
-      });
-    }
-    return {
-      message: 'User verified in session',
-      data: session,
-    };
   }
 
   async getAllRooms() {
     try {
-      const rooms = await this.sessionRepository.find({
-        relations: ['user_sessions'],
-      });
-
-      const sessions: getSessions[] = rooms.map((room) => ({
-        id: room.session_id,
-        name: room.session_name,
-        members: room.user_sessions ? room.user_sessions.length : 0,
-        status: room.status,
-        project: 'Project X',
-        lastActivity: new Date(),
-        isPrivate: !!room.session_code,
-      }));
-
+      const sessions = await this.sessionRepository.find();
       return {
         message: 'Rooms fetched successfully',
         data: sessions,
@@ -245,41 +144,6 @@ export class PokerService {
       console.error(error);
       throw new RpcException({
         message: 'Error fetching rooms',
-        code: HttpStatus.INTERNAL_SERVER_ERROR,
-        error: error.message,
-      });
-    }
-  }
-
-  async startSession(session_id: string) {
-    try {
-      const session = await this.sessionRepository.findOne({
-        where: {
-          session_id,
-          is_active: true,
-          status: SessionStatus.WAITING,
-        },
-      });
-
-      if (!session) {
-        throw new RpcException({
-          message: 'Session not found',
-          code: HttpStatus.NOT_FOUND,
-        });
-      }
-
-      session.is_active = true;
-
-      await this.sessionRepository.save(session);
-
-      return {
-        message: 'Session started successfully',
-        data: session,
-      };
-    } catch (error) {
-      console.error(error);
-      throw new RpcException({
-        message: 'Error starting session',
         code: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
       });

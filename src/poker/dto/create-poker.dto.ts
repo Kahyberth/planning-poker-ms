@@ -13,5 +13,5 @@ export class CreatePokerDto {
   description?: string;
   @IsString()
   @IsOptional()
-  team_name?: string;
+  voting_scale?: string;
 }

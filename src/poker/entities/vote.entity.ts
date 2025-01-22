@@ -2,12 +2,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
   Unique,
   CreateDateColumn,
-  JoinColumn,
+  ManyToOne,
 } from 'typeorm';
-import { Story } from './story.entity';
+import { Session } from './session.entity';
 
 @Entity()
 @Unique(['story_id', 'user_id'])
@@ -27,12 +26,6 @@ export class Vote {
   @CreateDateColumn({ type: 'timestamp' })
   voted_at: Date;
 
-  @Column()
-  history_id: string;
-
-  @ManyToOne(() => Story, (story) => story.votes, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'story_id' })
-  story: Story;
+  @ManyToOne(() => Session, (session) => session.vote)
+  session: Session;
 }
