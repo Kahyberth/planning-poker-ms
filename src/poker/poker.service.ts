@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CreatePokerDto } from './dto/create-poker.dto';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,10 +7,14 @@ import { Session } from './entities/session.entity';
 import { VotingScale } from 'src/commons/enums/poker.enums';
 import { v4 as uuidv4 } from 'uuid';
 import { Join_Session } from './entities/join.session.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class PokerService {
   constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
 
@@ -71,6 +75,8 @@ export class PokerService {
       });
 
       const savedSession = await this.sessionRepository.save(newSession);
+
+      await this.cacheManager.del('rooms');
 
       return {
         message: 'Room created successfully',
@@ -135,7 +141,19 @@ export class PokerService {
 
   async getAllRooms() {
     try {
+      const reply = await this.cacheManager.get('rooms');
+
+      if (reply) {
+        return {
+          message: 'Rooms fetched successfully',
+          data: JSON.parse(reply as string),
+        };
+      }
+
       const sessions = await this.sessionRepository.find();
+
+      await this.cacheManager.set('rooms', JSON.stringify(sessions));
+
       return {
         message: 'Rooms fetched successfully',
         data: sessions,

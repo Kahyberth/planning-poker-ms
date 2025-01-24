@@ -13,6 +13,7 @@ interface EnvVars {
   DB_PASSWORD: string;
   DB_DATABASE: string;
   WS_PORT: number;
+  REDIS_URL: string;
 }
 
 const envsSchema = joi
@@ -27,6 +28,7 @@ const envsSchema = joi
     DB_PASSWORD: joi.string().required(),
     DB_DATABASE: joi.string().required(),
     WS_PORT: joi.number().required(),
+    REDIS_URL: joi.string().required(),
   })
   .unknown(true);
 
@@ -41,6 +43,7 @@ const { error, value } = envsSchema.validate({
   DB_PASSWORD: process.env.DB_PASSWORD,
   DB_DATABASE: process.env.DB_DATABASE,
   WS_PORT: process.env.WS_PORT,
+  REDIS_URL: process.env.REDIS_URL,
 });
 
 if (error) {
@@ -60,4 +63,5 @@ export const envs = {
   DB_PASSWORD: envVars.DB_PASSWORD,
   DB_DATABASE: envVars.DB_DATABASE,
   WS_PORT: envVars.WS_PORT,
+  REDIS_URL: envVars.REDIS_URL,
 };
