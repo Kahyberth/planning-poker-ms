@@ -5,12 +5,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RpcException } from '@nestjs/microservices';
 import { Session } from './entities/session.entity';
 import { VotingScale } from 'src/commons/enums/poker.enums';
-import { v4 as uuidv4 } from 'uuid';
 import { Join_Session } from './entities/join.session.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import axios from 'axios';
 import { envs } from 'src/commons/envs';
+import { nanoid } from 'nanoid';
 
 @Injectable()
 export class PokerService {
@@ -68,12 +68,15 @@ export class PokerService {
           created_by: user[0].name,
           session_name,
           created_at: new Date(),
-          session_code: 'POKER-' + uuidv4().slice(0, 6).toLocaleUpperCase(),
+          session_code: 'POKER-' + nanoid().slice(0, 6).toLocaleUpperCase(),
           voting_scale: voting_scale || VotingScale.FIBONACCI,
           description,
         });
 
         const savedSession = await this.sessionRepository.save(newSession);
+
+        await this.cacheManager.del('rooms');
+
         return {
           message: 'Room created successfully',
           data: savedSession,
@@ -85,7 +88,7 @@ export class PokerService {
         session_name,
         created_at: new Date(),
         voting_scale: voting_scale || VotingScale.FIBONACCI,
-        session_code: 'POKER-' + session_code.toLocaleUpperCase(),
+        session_code: 'POKER-' + nanoid().slice(0, 6).toLocaleUpperCase(),
         description,
       });
 

@@ -30,6 +30,10 @@ export class PokerWsGateway
     Map<string, { value: string; participant: any }>
   >();
 
+  private stories = [];
+
+  private currentStoryIndex = 0;
+
   handleConnection(client: Socket) {
     console.log('Client connected:', client.id);
   }
@@ -53,7 +57,14 @@ export class PokerWsGateway
   @SubscribeMessage('join-room')
   async handleJoinRoom(client: Socket, room: string) {
     if (!room) {
-      client.emit('error', { message: 'Missing room' });
+      client.emit('error', { value: 'Missing room' });
+      return;
+    }
+
+    this.stories = this.pokerWsService.requestStory();
+
+    if (!this.stories || this.stories.length === 0) {
+      client.emit('error', { value: 'No stories available' });
       return;
     }
 
@@ -61,6 +72,8 @@ export class PokerWsGateway
       const timer = this.timers.get(room);
       client.emit('timer-started', { duration: timer.timeLeft });
     }
+
+    client.emit('story-changed', this.stories[this.currentStoryIndex]);
 
     try {
       const user = client.handshake.auth.user_data;
@@ -80,14 +93,14 @@ export class PokerWsGateway
       client.data.participant = participant_data;
       client.data.room = room;
       client.join(room);
-      client.emit('success', { message: 'Joined room successfully' });
+      client.emit('success', { value: 'Joined room successfully' });
       this.emitParticipantList(room);
 
       if (this.votes.has(room) && this.votes.get(room).size > 0) {
         this.emitVoteUpdate(room);
       }
     } catch (error) {
-      client.emit('error', { message: 'Token verification failed' });
+      client.emit('error', { value: 'Token verification failed' });
       console.log('error', error);
     }
   }
@@ -199,6 +212,13 @@ export class PokerWsGateway
   @SubscribeMessage('complete-voting')
   handleCompleteVoting(client: Socket, room: string) {
     const votes = this.votes.get(room);
+    const participantsMap = this.participants_in_room.get(room);
+
+    if (!votes || votes.size < participantsMap.size) {
+      client.emit('error', { value: 'Not all participants have voted yet' });
+      return;
+    }
+
     if (votes) {
       // Calcular resultados
       const numericVotes = Array.from(votes.values())
@@ -217,10 +237,15 @@ export class PokerWsGateway
         mode: this.calculateMode(numericVotes),
         votes: Array.from(votes.values()),
       });
-
-      // Limpiar votos
-      this.votes.delete(room);
     }
+  }
+
+  @SubscribeMessage('repeat-voting')
+  handleRepeatVoting(client: Socket, room: string) {
+    this.votes.delete(room);
+    this.wss.to(room).emit('voting-repeated', {
+      value: 'Voting has been reset',
+    });
   }
 
   private calculateMode(numbers: number[]): number {
@@ -228,5 +253,30 @@ export class PokerWsGateway
     const frequency = new Map<number, number>();
     numbers.forEach((n) => frequency.set(n, (frequency.get(n) || 0) + 1));
     return [...frequency.entries()].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+  }
+
+  @SubscribeMessage('next-story')
+  handleNextStory(client: Socket, room: string) {
+    const participantsMap = this.participants_in_room.get(room);
+
+    const votesMap = this.votes.get(room);
+
+    if (!votesMap || votesMap.size < participantsMap.size) {
+      client.emit('error', { value: 'Not all participants have voted yet' });
+      return;
+    }
+
+    this.currentStoryIndex = (this.currentStoryIndex + 1) % this.stories.length;
+    this.wss
+      .to(room)
+      .emit('story-changed', this.stories[this.currentStoryIndex]);
+
+    this.wss.to(room).emit('success', { value: 'Story changed successfully' });
+
+    this.votes.delete(room);
+
+    this.wss.to(room).emit('voting-repeated', {
+      value: 'Voting has been reset',
+    });
   }
 }

@@ -1,26 +1,33 @@
 import { Injectable } from '@nestjs/common';
-import { CreatePokerWDto } from './dto/create-poker-w.dto';
-import { UpdatePokerWDto } from './dto/update-poker-w.dto';
 
 @Injectable()
 export class PokerWsService {
-  create(createPokerWDto: CreatePokerWDto) {
-    return 'This action adds a new pokerW';
-  }
-
-  findAll() {
-    return `This action returns all pokerWs`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} pokerW`;
-  }
-
-  update(id: number, updatePokerWDto: UpdatePokerWDto) {
-    return `This action updates a #${id} pokerW`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} pokerW`;
+  requestStory() {
+    return [
+      {
+        id: 1,
+        title: 'Implement user authentication',
+        description: 'As a user, I want to be able to securely log in ...',
+        priority: 'High',
+      },
+      {
+        id: 2,
+        title: 'Create dashboard layout',
+        description: 'As a user, I want to see a clear overview ...',
+        priority: 'Medium',
+      },
+      {
+        id: 3,
+        title: 'Login page design',
+        description: 'As a user, I want to see a beautiful login page ...',
+        priority: 'Low',
+      },
+      {
+        id: 4,
+        title: 'Manage user roles',
+        description: 'As an admin, I want to be able to manage user roles ...',
+        priority: 'High',
+      },
+    ];
   }
 }
