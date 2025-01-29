@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Join_Session } from './entities/join.session.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import axios from 'axios';
+import { envs } from 'src/commons/envs';
 
 @Injectable()
 export class PokerService {
@@ -46,11 +48,24 @@ export class PokerService {
         });
       }
 
+      const user = await axios
+        .get(`${envs.CLIENT_GATEWAY_URL}/api/auth/find/user/${created_by}`)
+        .then((res) => {
+          return res.data;
+        });
+
+      if (!user) {
+        throw new RpcException({
+          message: 'User not found',
+          code: HttpStatus.NOT_FOUND,
+        });
+      }
+
       let newSession: Session;
 
       if (!session_code || session_code === '') {
         newSession = this.sessionRepository.create({
-          created_by,
+          created_by: user[0].name,
           session_name,
           created_at: new Date(),
           session_code: 'POKER-' + uuidv4().slice(0, 6).toLocaleUpperCase(),
@@ -66,7 +81,7 @@ export class PokerService {
       }
 
       newSession = this.sessionRepository.create({
-        created_by,
+        created_by: user[0].name,
         session_name,
         created_at: new Date(),
         voting_scale: voting_scale || VotingScale.FIBONACCI,
