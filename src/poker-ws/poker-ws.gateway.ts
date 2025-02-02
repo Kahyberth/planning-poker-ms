@@ -44,6 +44,11 @@ export class PokerWsGateway
 
   private historyByRoom = new Map<string, any[]>();
 
+  private timers = new Map<
+    string,
+    { timeLeft: number; interval: NodeJS.Timeout }
+  >();
+
   handleConnection(client: Socket) {
     console.log('Client connected:', client.id);
   }
@@ -64,6 +69,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Join room and emit success message to client
+   * @param client
+   * @param room
+   * @returns  void
+   */
   @SubscribeMessage('join-room')
   async handleJoinRoom(client: Socket, room: string) {
     if (!room) {
@@ -123,6 +134,11 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Leave room and emit success message to client
+   * @param room
+   * @returns  void
+   */
   private emitParticipantList(room: string) {
     const participantsMap = this.participants_in_room.get(room);
     if (participantsMap) {
@@ -131,6 +147,24 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Leave room and emit success message to client
+   * @param client
+   * @param room
+   * @returns  void
+   */
+  @SubscribeMessage('leave-room')
+  handleLeaveRoom(client: Socket, room: string) {
+    client.leave(room);
+    client.emit('success', { value: 'Left room successfully' });
+  }
+
+  /**
+   * @description  Send message to room
+   * @param client
+   * @param payload
+   * @returns  void
+   */
   @SubscribeMessage('send-message')
   onMessageReceived(client: Socket, payload: Chat) {
     const { message, room } = payload;
@@ -140,11 +174,12 @@ export class PokerWsGateway
     });
   }
 
-  private timers = new Map<
-    string,
-    { timeLeft: number; interval: NodeJS.Timeout }
-  >();
-
+  /**
+   * @description  Start timer
+   * @param client
+   * @param payload
+   * @returns  void
+   * */
   @SubscribeMessage('start-timer')
   handleStartTimer(
     client: Socket,
@@ -152,13 +187,12 @@ export class PokerWsGateway
   ) {
     const { room, duration } = payload;
 
-    // Limpiar timer existente
     if (this.timers.has(room)) {
       clearInterval(this.timers.get(room).interval);
     }
 
     let timeLeft = duration;
-    const updateInterval = 1000; // Actualizar cada segundo
+    const updateInterval = 1000;
 
     const interval = setInterval(() => {
       if (timeLeft <= 0) {
@@ -167,17 +201,21 @@ export class PokerWsGateway
         this.timers.delete(room);
       } else {
         timeLeft -= 1;
-        // Emitir a toda la sala el tiempo actualizado
+
         this.wss.to(room).emit('timer-update', { timeLeft });
         this.timers.get(room).timeLeft = timeLeft;
       }
     }, updateInterval);
 
     this.timers.set(room, { timeLeft, interval });
-    // Notificar a todos que el timer inició
     this.wss.to(room).emit('timer-started', { duration });
   }
 
+  /**
+   * @description  Handle timer update request
+   * @param client
+   * @returns  void
+   * */
   @SubscribeMessage('request-timer-update')
   handleTimerUpdateRequest(client: Socket, room: string) {
     if (this.timers.has(room)) {
@@ -186,6 +224,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Handle stop timer request
+   * @param client
+   * @param payload
+   * @returns  void
+   * */
   @SubscribeMessage('stop-timer')
   handleStopTimer(client: Socket, payload: { room: string }) {
     const { room } = payload;
@@ -196,6 +240,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Submit vote for the story in the room
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   @SubscribeMessage('submit-vote')
   handleVote(client: Socket, payload: { room: string; vote: string }) {
     const { room, vote } = payload;
@@ -205,16 +255,20 @@ export class PokerWsGateway
       this.votes.set(room, new Map());
     }
 
-    // Registrar el voto
     this.votes.get(room).set(participant.id, {
       value: vote,
       participant: participant,
     });
 
-    // Notificar a todos los participantes
     this.emitVoteUpdate(room);
   }
 
+  /**
+   * @description  Emit vote update to the room
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   private emitVoteUpdate(room: string) {
     const votes = this.votes.get(room);
     if (votes) {
@@ -227,6 +281,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Complete voting for the story in the room
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   @SubscribeMessage('complete-voting')
   handleCompleteVoting(client: Socket, room: string) {
     const votes = this.votes.get(room);
@@ -238,7 +298,6 @@ export class PokerWsGateway
     }
 
     if (votes) {
-      // Calcular resultados
       const numericVotes = Array.from(votes.values())
         .map((v) => parseInt(v.value))
         .filter((v) => !isNaN(v));
@@ -250,7 +309,6 @@ export class PokerWsGateway
 
       this.avarageValue = average;
 
-      // Enviar resultados
       this.wss.to(room).emit('voting-results', {
         average,
         median,
@@ -260,6 +318,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  Repeat voting for the same story in the room
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   @SubscribeMessage('repeat-voting')
   handleRepeatVoting(client: Socket, room: string) {
     this.votes.delete(room);
@@ -268,13 +332,24 @@ export class PokerWsGateway
     });
   }
 
+  /**
+   * @description  Calculate mode of the votes
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   private calculateMode(numbers: number[]): number {
-    // Implementación del cálculo de moda
     const frequency = new Map<number, number>();
     numbers.forEach((n) => frequency.set(n, (frequency.get(n) || 0) + 1));
     return [...frequency.entries()].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
   }
 
+  /**
+   * @description  Handle story change request for next story
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   @SubscribeMessage('next-story')
   async handleNextStory(client: Socket, room: string) {
     const participantsMap = this.participants_in_room.get(room);
@@ -337,6 +412,12 @@ export class PokerWsGateway
     }
   }
 
+  /**
+   * @description  End session for the room and save the history
+   * @param client
+   * @param room
+   * @returns  void
+   * */
   @SubscribeMessage('end-session')
   async handleEndSession(client: Socket, room: string) {
     try {
@@ -378,6 +459,10 @@ export class PokerWsGateway
       this.historyByRoom.delete(room);
       this.timers.delete(room);
       this.pokerWsService.deactivateSession(room);
+
+      if (this.timers.has(room)) {
+        clearInterval(this.timers.get(room).interval);
+      }
 
       client.emit('success', { value: 'Session ended successfully' });
     } catch (error) {
