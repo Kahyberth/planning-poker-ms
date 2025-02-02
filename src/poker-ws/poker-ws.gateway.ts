@@ -34,6 +34,16 @@ export class PokerWsGateway
 
   private currentStoryIndex = 0;
 
+  private avarageValue = 0;
+
+  private results = {
+    average: 0,
+    median: 0,
+    mode: 0,
+  };
+
+  private historyByRoom = new Map<string, any[]>();
+
   handleConnection(client: Socket) {
     console.log('Client connected:', client.id);
   }
@@ -68,12 +78,20 @@ export class PokerWsGateway
       return;
     }
 
+    if (this.historyByRoom.has(room)) {
+      const history = this.historyByRoom.get(room);
+      client.emit('voting-history-updated', history);
+    }
+
     if (this.timers.has(room)) {
       const timer = this.timers.get(room);
       client.emit('timer-started', { duration: timer.timeLeft });
     }
 
-    client.emit('story-changed', this.stories[this.currentStoryIndex]);
+    client.emit('story-changed', {
+      story: this.stories[this.currentStoryIndex],
+      isLast: this.currentStoryIndex === this.stories.length - 1,
+    });
 
     try {
       const user = client.handshake.auth.user_data;
@@ -230,6 +248,8 @@ export class PokerWsGateway
       const sorted = [...numericVotes].sort((a, b) => a - b);
       const median = sorted[Math.floor(sorted.length / 2)];
 
+      this.avarageValue = average;
+
       // Enviar resultados
       this.wss.to(room).emit('voting-results', {
         average,
@@ -256,9 +276,8 @@ export class PokerWsGateway
   }
 
   @SubscribeMessage('next-story')
-  handleNextStory(client: Socket, room: string) {
+  async handleNextStory(client: Socket, room: string) {
     const participantsMap = this.participants_in_room.get(room);
-
     const votesMap = this.votes.get(room);
 
     if (!votesMap || votesMap.size < participantsMap.size) {
@@ -266,17 +285,104 @@ export class PokerWsGateway
       return;
     }
 
-    this.currentStoryIndex = (this.currentStoryIndex + 1) % this.stories.length;
-    this.wss
-      .to(room)
-      .emit('story-changed', this.stories[this.currentStoryIndex]);
+    try {
+      const numericVotes = Array.from(this.votes.get(room).values())
+        .map((v) => parseInt(v.value))
+        .filter((v) => !isNaN(v));
+      const average =
+        numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
 
-    this.wss.to(room).emit('success', { value: 'Story changed successfully' });
+      const votesToSave = Array.from(votesMap.values()).map((vote) => ({
+        story_id: this.stories[this.currentStoryIndex].id,
+        user_id: vote.participant.id,
+        card_value: vote.value,
+        final_value: average.toString(),
+      }));
 
-    this.votes.delete(room);
+      await this.pokerWsService.saveVote(votesToSave, room);
 
-    this.wss.to(room).emit('voting-repeated', {
-      value: 'Voting has been reset',
-    });
+      if (!this.historyByRoom.has(room)) {
+        this.historyByRoom.set(room, []);
+      }
+
+      const newRecord = {
+        story_title: this.stories[this.currentStoryIndex].title,
+        story_id: this.stories[this.currentStoryIndex].id,
+        card_value: average,
+        history_date: new Date(),
+      };
+
+      this.historyByRoom.get(room).push(newRecord);
+
+      const fullHistory = this.historyByRoom.get(room);
+      this.wss.to(room).emit('voting-history-updated', fullHistory);
+
+      this.currentStoryIndex =
+        (this.currentStoryIndex + 1) % this.stories.length;
+      this.wss
+        .to(room)
+        .emit('story-changed', this.stories[this.currentStoryIndex]);
+
+      this.wss.to(room).emit('story-changed', {
+        story: this.stories[this.currentStoryIndex],
+        isLast: this.currentStoryIndex === this.stories.length - 1,
+      });
+
+      this.votes.delete(room);
+      this.wss.to(room).emit('voting-repeated', {
+        value: 'Voting has been reset',
+      });
+    } catch (error) {
+      client.emit('error', { value: error.message });
+    }
+  }
+
+  @SubscribeMessage('end-session')
+  async handleEndSession(client: Socket, room: string) {
+    try {
+      if (!this.historyByRoom.has(room)) {
+        this.historyByRoom.set(room, []);
+      }
+
+      const newRecord = {
+        story_title: this.stories[this.currentStoryIndex].title,
+        story_id: this.stories[this.currentStoryIndex].id,
+        card_value: this.avarageValue,
+        history_date: new Date(),
+      };
+
+      this.historyByRoom.get(room).push(newRecord);
+
+      const history = this.historyByRoom.get(room);
+      if (history) {
+        await this.pokerWsService.saveHistory(history, room);
+      }
+
+      this.wss.to(room).emit('session-ended', {
+        message: 'Session has ended',
+      });
+
+      const socketsInRoom = this.wss.sockets.adapter.rooms.get(room);
+      if (socketsInRoom) {
+        socketsInRoom.forEach((socketId) => {
+          const socketClient = this.wss.sockets.sockets.get(socketId);
+          if (socketClient) {
+            socketClient.leave(room);
+            socketClient.disconnect(true);
+          }
+        });
+      }
+
+      this.participants_in_room.delete(room);
+      this.votes.delete(room);
+      this.historyByRoom.delete(room);
+      this.timers.delete(room);
+      this.pokerWsService.deactivateSession(room);
+
+      client.emit('success', { value: 'Session ended successfully' });
+    } catch (error) {
+      console.error('Error ending session:', error);
+      client.emit('error', { value: 'Failed to end session' });
+    }
   }
 }

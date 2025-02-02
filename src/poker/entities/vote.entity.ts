@@ -23,6 +23,9 @@ export class Vote {
   @Column()
   card_value: string;
 
+  @Column()
+  final_value: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   voted_at: Date;
 

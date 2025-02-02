@@ -1,7 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Session } from '../poker/entities/session.entity';
+import { DataSource, Repository } from 'typeorm';
+import { Vote } from 'src/poker/entities/vote.entity';
+import { History } from 'src/poker/entities/history.entity';
 
 @Injectable()
 export class PokerWsService {
+  constructor(
+    @InjectRepository(Vote)
+    private readonly voteRepository: Repository<Vote>,
+
+    @InjectRepository(Session)
+    private readonly sessionRepository: Repository<Session>,
+
+    private readonly dataSource: DataSource,
+  ) {}
+
+  private readonly logger = new Logger(PokerWsService.name);
+
   requestStory() {
     return [
       {
@@ -29,5 +46,91 @@ export class PokerWsService {
         priority: 'High',
       },
     ];
+  }
+
+  async saveVote(votes: any[], session_id: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.startTransaction();
+
+    try {
+      const session = await queryRunner.manager.findOne(Session, {
+        where: { session_id },
+      });
+
+      if (!session) {
+        throw new BadRequestException('Session not found');
+      }
+
+      for (const vote of votes) {
+        const { story_id, user_id, card_value, final_value } = vote;
+        const currentVote = queryRunner.manager.create(Vote, {
+          story_id,
+          user_id,
+          card_value,
+          final_value,
+          voted_at: new Date(),
+          session,
+        });
+        await queryRunner.manager.save(currentVote);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error while saving vote: ${error}`);
+      throw new BadRequestException('Error while saving vote');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async saveHistory(historyArray: any[], session_id: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.startTransaction();
+
+    try {
+      const session = await queryRunner.manager.findOne(Session, {
+        where: { session_id },
+      });
+      if (!session) {
+        throw new BadRequestException('Session not found');
+      }
+
+      for (const record of historyArray) {
+        const { story_id, card_value } = record;
+        // Asegúrate de que story_id y card_value existan
+        if (!story_id) {
+          throw new BadRequestException('story_id is missing');
+        }
+        const currentHistory = queryRunner.manager.create(History, {
+          story_id,
+          card_value,
+          history_date: new Date(),
+          session,
+        });
+        await queryRunner.manager.save(currentHistory);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error while saving history: ${error}`);
+      throw new BadRequestException('Error while saving history');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async deactivateSession(session_id: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { session_id },
+    });
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+
+    session.is_active = false;
+    await this.sessionRepository.save(session);
   }
 }

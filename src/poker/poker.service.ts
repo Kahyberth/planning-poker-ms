@@ -34,6 +34,14 @@ export class PokerService {
         description,
       } = createPokerDto;
 
+      console.log({
+        created_by,
+        session_name,
+        session_code,
+        voting_scale,
+        description,
+      });
+
       const isSession = await this.sessionRepository.findOne({
         where: {
           is_active: true,
@@ -73,9 +81,11 @@ export class PokerService {
           description,
         });
 
+        console.log('New session:', newSession);
+
         const savedSession = await this.sessionRepository.save(newSession);
 
-        await this.cacheManager.del('rooms');
+        console.log('Saved session:', savedSession);
 
         return {
           message: 'Room created successfully',
@@ -93,8 +103,6 @@ export class PokerService {
       });
 
       const savedSession = await this.sessionRepository.save(newSession);
-
-      await this.cacheManager.del('rooms');
 
       return {
         message: 'Room created successfully',
@@ -159,18 +167,11 @@ export class PokerService {
 
   async getAllRooms() {
     try {
-      const reply = await this.cacheManager.get('rooms');
-
-      if (reply) {
-        return {
-          message: 'Rooms fetched successfully',
-          data: JSON.parse(reply as string),
-        };
-      }
-
-      const sessions = await this.sessionRepository.find();
-
-      await this.cacheManager.set('rooms', JSON.stringify(sessions));
+      const sessions = await this.sessionRepository.find({
+        where: {
+          is_active: true,
+        },
+      });
 
       return {
         message: 'Rooms fetched successfully',

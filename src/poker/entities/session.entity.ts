@@ -12,6 +12,7 @@ import { SessionStatus, VotingScale } from 'src/commons/enums/poker.enums';
 import { Join_Session } from './join.session.entity';
 import { Vote } from './vote.entity';
 import { Chat } from './chat.entity';
+import { History } from './history.entity';
 
 @Entity()
 export class Session {
@@ -68,4 +69,7 @@ export class Session {
   @OneToOne(() => Chat)
   @JoinColumn()
   chat: Chat;
+
+  @OneToMany(() => History, (history) => history.session)
+  histories: History[];
 }
