@@ -2,8 +2,10 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Session } from './session.entity';
 
 @Entity()
 export class Chat {
@@ -22,6 +24,6 @@ export class Chat {
   @Column('text')
   user_id: string;
 
-  @Column('text')
-  session_id: string;
+  @ManyToOne(() => Session, (session) => session.chats, { onDelete: 'CASCADE' })
+  session: Session;
 }

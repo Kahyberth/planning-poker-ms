@@ -60,7 +60,8 @@ export class PokerWsGateway
     if (room && participant) {
       const participantsMap = this.participants_in_room.get(room);
       if (participantsMap) {
-        participantsMap.delete(client.id);
+        // Se elimina usando el user.id en lugar del client.id
+        participantsMap.delete(participant.id);
         if (participantsMap.size === 0) {
           this.participants_in_room.delete(room);
         }
@@ -82,7 +83,7 @@ export class PokerWsGateway
       return;
     }
 
-    this.stories = this.pokerWsService.requestStory();
+    this.stories = await this.pokerWsService.requestDeck(room);
 
     if (!this.stories || this.stories.length === 0) {
       client.emit('error', { value: 'No stories available' });
@@ -118,7 +119,11 @@ export class PokerWsGateway
       if (!this.participants_in_room.has(room)) {
         this.participants_in_room.set(room, new Map<string, object>());
       }
-      this.participants_in_room.get(room).set(client.id, participant_data);
+
+      const participantsMap = this.participants_in_room.get(room);
+
+      participantsMap.set(user.id, participant_data);
+
       client.data.participant = participant_data;
       client.data.room = room;
       client.join(room);

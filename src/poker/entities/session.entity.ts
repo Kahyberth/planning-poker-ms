@@ -13,6 +13,7 @@ import { Join_Session } from './join.session.entity';
 import { Vote } from './vote.entity';
 import { Chat } from './chat.entity';
 import { History } from './history.entity';
+import { Decks } from './decks.entity';
 
 @Entity()
 export class Session {
@@ -46,6 +47,14 @@ export class Session {
   session_code?: string;
 
   @Column({
+    type: 'text',
+  })
+  project_id: string;
+
+  @Column()
+  project_name: string;
+
+  @Column({
     type: 'enum',
     enum: VotingScale,
     default: VotingScale.FIBONACCI,
@@ -60,16 +69,25 @@ export class Session {
   })
   status: SessionStatus;
 
+  @Column({
+    type: 'int',
+    default: 8,
+  })
+  capacity: number;
+
   @OneToMany(() => Join_Session, (join_session) => join_session.session)
   join_session: Join_Session[];
 
   @OneToMany(() => Vote, (vote) => vote.session)
   vote: Vote[];
 
-  @OneToOne(() => Chat)
-  @JoinColumn()
-  chat: Chat;
+  @OneToMany(() => Chat, (chat) => chat.session, { cascade: true })
+  chats: Chat[];
 
   @OneToMany(() => History, (history) => history.session)
   histories: History[];
+
+  @OneToOne(() => Decks, (decks) => decks.session, { cascade: true })
+  @JoinColumn()
+  decks: Decks;
 }

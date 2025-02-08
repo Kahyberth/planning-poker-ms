@@ -4,6 +4,7 @@ import { Session } from '../poker/entities/session.entity';
 import { DataSource, Repository } from 'typeorm';
 import { Vote } from 'src/poker/entities/vote.entity';
 import { History } from 'src/poker/entities/history.entity';
+import { Decks } from 'src/poker/entities/decks.entity';
 
 @Injectable()
 export class PokerWsService {
@@ -14,38 +15,22 @@ export class PokerWsService {
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
 
+    @InjectRepository(Decks)
+    private readonly decksRepository: Repository<Decks>,
+
     private readonly dataSource: DataSource,
   ) {}
 
   private readonly logger = new Logger(PokerWsService.name);
 
-  requestStory() {
-    return [
-      {
-        id: 1,
-        title: 'Implement user authentication',
-        description: 'As a user, I want to be able to securely log in ...',
-        priority: 'High',
-      },
-      {
-        id: 2,
-        title: 'Create dashboard layout',
-        description: 'As a user, I want to see a clear overview ...',
-        priority: 'Medium',
-      },
-      {
-        id: 3,
-        title: 'Login page design',
-        description: 'As a user, I want to see a beautiful login page ...',
-        priority: 'Low',
-      },
-      {
-        id: 4,
-        title: 'Manage user roles',
-        description: 'As an admin, I want to be able to manage user roles ...',
-        priority: 'High',
-      },
-    ];
+  async requestDeck(sessionId: string) {
+    const decks = await this.decksRepository
+      .createQueryBuilder('deck')
+      .innerJoinAndSelect('deck.session', 'session')
+      .where('session.session_id = :sessionId', { sessionId })
+      .andWhere('session.is_active = :active', { active: true })
+      .getMany();
+    return decks[0].deck_cards;
   }
 
   async saveVote(votes: any[], session_id: string) {
@@ -99,7 +84,6 @@ export class PokerWsService {
 
       for (const record of historyArray) {
         const { story_id, card_value } = record;
-        // Asegúrate de que story_id y card_value existan
         if (!story_id) {
           throw new BadRequestException('story_id is missing');
         }
