@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CreatePokerDto } from './dto/create-poker.dto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RpcException } from '@nestjs/microservices';
 import { Session } from './entities/session.entity';
@@ -10,7 +10,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import axios from 'axios';
 import { envs } from 'src/commons/envs';
-import { nanoid } from 'nanoid';
 import { Decks } from './entities/decks.entity';
 import { Chat } from './entities/chat.entity';
 
@@ -120,7 +119,7 @@ export class PokerService {
         session_name,
         created_at: new Date(),
         voting_scale: voting_scale || VotingScale.FIBONACCI,
-        session_code: 'POKER-' + nanoid().slice(0, 6).toLocaleUpperCase(),
+        session_code: 'POKER-' + session_code,
         description,
         project_id,
         project_name: isProject.name,
@@ -173,7 +172,6 @@ export class PokerService {
     console.log('Joining session:', session_id, user_id);
 
     try {
-      // Buscamos la sesión por su id.
       const session = await this.sessionRepository.findOne({
         where: { session_id },
       });
@@ -185,7 +183,6 @@ export class PokerService {
         });
       }
 
-      // Verificamos que la sesión a la que se intenta unir esté activa.
       if (!session.is_active) {
         throw new RpcException({
           message: 'Room is not active',
@@ -193,11 +190,11 @@ export class PokerService {
         });
       }
 
-      // Verificamos si el usuario ya se encuentra en esta misma sesión.
       const isUserAlreadyInSession = await this.joinSessionRepository.findOne({
         where: {
           user_id,
           session,
+          left_at: IsNull(),
         },
       });
 
@@ -208,9 +205,11 @@ export class PokerService {
         });
       }
 
-      // Verificamos si el usuario está en alguna otra sesión activa.
       const userJoinSession = await this.joinSessionRepository.findOne({
-        where: { user_id },
+        where: {
+          user_id,
+          left_at: IsNull(),
+        },
         relations: ['session'],
       });
 
@@ -225,7 +224,6 @@ export class PokerService {
         });
       }
 
-      // Si no está en ninguna sesión activa, se procede a crear la entrada de unión.
       const join_session = this.joinSessionRepository.create({
         user_id,
         joined_at: new Date(),
@@ -250,7 +248,7 @@ export class PokerService {
 
       if (!session) {
         throw new RpcException({
-          message: 'Room not found',
+          message: 'Incorrect session code',
           code: HttpStatus.NOT_FOUND,
         });
       }

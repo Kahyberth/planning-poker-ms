@@ -6,6 +6,7 @@ import {
   OneToMany,
   OneToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 
 import { SessionStatus, VotingScale } from 'src/commons/enums/poker.enums';
@@ -16,13 +17,15 @@ import { History } from './history.entity';
 import { Decks } from './decks.entity';
 
 @Entity()
+@Index('IDX_ACTIVE_SESSION_NAME', ['session_name'], {
+  unique: true,
+  where: `"is_active" = true`,
+})
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   session_id: string;
 
-  @Column('text', {
-    unique: true,
-  })
+  @Column('text')
   session_name: string;
 
   @CreateDateColumn({ type: 'timestamp' })
@@ -42,7 +45,6 @@ export class Session {
   @Column({
     type: 'text',
     nullable: true,
-    unique: true,
   })
   session_code?: string;
 

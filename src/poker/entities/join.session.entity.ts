@@ -19,6 +19,9 @@ export class Join_Session {
   @CreateDateColumn({ type: 'timestamp' })
   joined_at: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  left_at: Date;
+
   @ManyToOne(() => Session, (session) => session.join_session, {
     cascade: true,
   })

@@ -161,7 +161,7 @@ export class PokerWsGateway
   @SubscribeMessage('leave-room')
   handleLeaveRoom(client: Socket, room: string) {
     client.leave(room);
-    client.emit('success', { value: 'Left room successfully' });
+    this.pokerWsService.leaveSession(room, client.data.participant.id);
   }
 
   /**

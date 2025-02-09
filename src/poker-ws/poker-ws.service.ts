@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Session } from '../poker/entities/session.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { Vote } from 'src/poker/entities/vote.entity';
 import { History } from 'src/poker/entities/history.entity';
 import { Decks } from 'src/poker/entities/decks.entity';
+import { Join_Session } from 'src/poker/entities/join.session.entity';
 
 @Injectable()
 export class PokerWsService {
@@ -17,6 +18,9 @@ export class PokerWsService {
 
     @InjectRepository(Decks)
     private readonly decksRepository: Repository<Decks>,
+
+    @InjectRepository(Join_Session)
+    private readonly joinSessionRepository: Repository<Join_Session>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -68,6 +72,34 @@ export class PokerWsService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async leaveSession(session_id: string, user_id: string) {
+    console.log('session_id', session_id);
+
+    const session = await this.sessionRepository.findOne({
+      where: { session_id: session_id },
+    });
+
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+
+    const joinSession = await this.joinSessionRepository.findOne({
+      where: {
+        session,
+        user_id,
+        left_at: IsNull(),
+      },
+    });
+
+    if (!joinSession) {
+      throw new BadRequestException('User not found in the active session');
+    }
+
+    await this.joinSessionRepository.update(joinSession.join_session_id, {
+      left_at: new Date(),
+    });
   }
 
   async saveHistory(historyArray: any[], session_id: string) {
