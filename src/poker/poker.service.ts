@@ -12,6 +12,7 @@ import axios from 'axios';
 import { envs } from 'src/commons/envs';
 import { Decks } from './entities/decks.entity';
 import { Chat } from './entities/chat.entity';
+import { ValidateSession } from './dto/validate-session.dto';
 
 interface Project {
   id: number;
@@ -309,5 +310,29 @@ export class PokerService {
     }
   }
 
-  // async validateSession() {}
+  async validateSession(
+    payload: ValidateSession,
+  ): Promise<{ message: string; isInSession: boolean }> {
+    const { session_id, user_id } = payload;
+
+    const joinSession = await this.joinSessionRepository
+      .createQueryBuilder('js')
+      .innerJoin('js.session', 's')
+      .where('s.session_id = :session_id', { session_id })
+      .andWhere('js.user_id = :user_id', { user_id })
+      .andWhere('js.left_at IS NULL')
+      .getOne();
+
+    if (!joinSession) {
+      throw new RpcException({
+        message: 'User not found in the session',
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    }
+
+    return {
+      message: 'User found in the session',
+      isInSession: true,
+    };
+  }
 }

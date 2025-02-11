@@ -6,6 +6,7 @@ import {
   joinSessionByCode,
   joinSession,
 } from 'src/commons/interfaces/Sessions';
+import { ValidateSession } from './dto/validate-session.dto';
 
 @Controller()
 export class PokerController {
@@ -38,17 +39,8 @@ export class PokerController {
   //   return this.pokerService.startSession(session_code);
   // }
 
-  // @MessagePattern('poker.verify.user')
-  // async verifyUser(@Payload() data: any) {
-  //   const { session_id, user_id } = data;
-  //   return this.pokerService
-  //     .verifyUserInSession(session_id, user_id)
-  //     .catch((err) => {
-  //       console.error('Error verifying user in session:', err);
-  //       throw new RpcException({
-  //         message: 'User not in session',
-  //         code: 404,
-  //       });
-  //     });
-  // }
+  @MessagePattern('poker.validate.session')
+  validateSession(@Payload() data: ValidateSession) {
+    return this.pokerService.validateSession(data);
+  }
 }
