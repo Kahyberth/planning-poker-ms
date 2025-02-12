@@ -20,6 +20,9 @@ import { CacheModule } from '@nestjs/cache-manager';
       password: envs.DB_PASSWORD,
       database: envs.DB_DATABASE,
       synchronize: true,
+      extra: {
+        ssl: true,
+      },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
     }),
   ],

@@ -30,17 +30,12 @@ export class PokerWsGateway
     Map<string, { value: string; participant: any }>
   >();
 
-  private stories = [];
+  private roomStates = new Map<
+    string,
+    { stories: any[]; currentStoryIndex: number }
+  >();
 
-  private currentStoryIndex = 0;
-
-  private avarageValue = 0;
-
-  private results = {
-    average: 0,
-    median: 0,
-    mode: 0,
-  };
+  private roomAvarage = new Map<string, number>();
 
   private historyByRoom = new Map<string, any[]>();
 
@@ -83,11 +78,15 @@ export class PokerWsGateway
       return;
     }
 
-    this.stories = await this.pokerWsService.requestDeck(room);
+    const stories = await this.pokerWsService.requestDeck(room);
 
-    if (!this.stories || this.stories.length === 0) {
+    if (!stories || stories.length === 0) {
       client.emit('error', { value: 'No stories available' });
       return;
+    }
+
+    if (!this.roomStates.has(room)) {
+      this.roomStates.set(room, { stories, currentStoryIndex: 0 });
     }
 
     if (this.historyByRoom.has(room)) {
@@ -100,9 +99,11 @@ export class PokerWsGateway
       client.emit('timer-started', { duration: timer.timeLeft });
     }
 
+    const { currentStoryIndex } = this.roomStates.get(room);
+
     client.emit('story-changed', {
-      story: this.stories[this.currentStoryIndex],
-      isLast: this.currentStoryIndex === this.stories.length - 1,
+      story: stories[currentStoryIndex],
+      isLast: currentStoryIndex === stories.length - 1,
     });
 
     try {
@@ -312,7 +313,7 @@ export class PokerWsGateway
       const sorted = [...numericVotes].sort((a, b) => a - b);
       const median = sorted[Math.floor(sorted.length / 2)];
 
-      this.avarageValue = average;
+      this.roomAvarage.set(room, average);
 
       this.wss.to(room).emit('voting-results', {
         average,
@@ -359,6 +360,12 @@ export class PokerWsGateway
   async handleNextStory(client: Socket, room: string) {
     const participantsMap = this.participants_in_room.get(room);
     const votesMap = this.votes.get(room);
+    const roomState = this.roomStates.get(room);
+    if (!roomState) {
+      client.emit('error', { value: 'Room state not found' });
+      return;
+    }
+    const { stories, currentStoryIndex } = roomState;
 
     if (!votesMap || votesMap.size < participantsMap.size) {
       client.emit('error', { value: 'Not all participants have voted yet' });
@@ -373,7 +380,7 @@ export class PokerWsGateway
         numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
 
       const votesToSave = Array.from(votesMap.values()).map((vote) => ({
-        story_id: this.stories[this.currentStoryIndex].id,
+        story_id: stories[currentStoryIndex].id,
         user_id: vote.participant.id,
         card_value: vote.value,
         final_value: average.toString(),
@@ -386,8 +393,8 @@ export class PokerWsGateway
       }
 
       const newRecord = {
-        story_title: this.stories[this.currentStoryIndex].title,
-        story_id: this.stories[this.currentStoryIndex].id,
+        story_title: stories[currentStoryIndex].title,
+        story_id: stories[currentStoryIndex].id,
         card_value: average,
         history_date: new Date(),
       };
@@ -397,15 +404,11 @@ export class PokerWsGateway
       const fullHistory = this.historyByRoom.get(room);
       this.wss.to(room).emit('voting-history-updated', fullHistory);
 
-      this.currentStoryIndex =
-        (this.currentStoryIndex + 1) % this.stories.length;
-      this.wss
-        .to(room)
-        .emit('story-changed', this.stories[this.currentStoryIndex]);
-
+      roomState.currentStoryIndex = (currentStoryIndex + 1) % stories.length;
+      const newIndex = roomState.currentStoryIndex;
       this.wss.to(room).emit('story-changed', {
-        story: this.stories[this.currentStoryIndex],
-        isLast: this.currentStoryIndex === this.stories.length - 1,
+        story: stories[newIndex],
+        isLast: newIndex === stories.length - 1,
       });
 
       this.votes.delete(room);
@@ -430,14 +433,39 @@ export class PokerWsGateway
         this.historyByRoom.set(room, []);
       }
 
+      const roomState = this.roomStates.get(room);
+      if (!roomState) {
+        client.emit('error', { value: 'Room state not found' });
+        return;
+      }
+
+      const votesMap = this.votes.get(room);
+      const { stories, currentStoryIndex } = roomState;
+
       const newRecord = {
-        story_title: this.stories[this.currentStoryIndex].title,
-        story_id: this.stories[this.currentStoryIndex].id,
-        card_value: this.avarageValue,
+        story_title: stories[currentStoryIndex].title,
+        story_id: stories[currentStoryIndex].id,
+        card_value: this.roomAvarage.get(room),
         history_date: new Date(),
       };
 
       this.historyByRoom.get(room).push(newRecord);
+
+      const numericVotes = Array.from(this.votes.get(room).values())
+        .map((v) => parseInt(v.value))
+        .filter((v) => !isNaN(v));
+
+      const average =
+        numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
+
+      const votesToSave = Array.from(votesMap.values()).map((vote) => ({
+        story_id: stories[currentStoryIndex].id,
+        user_id: vote.participant.id,
+        card_value: vote.value,
+        final_value: average.toString(),
+      }));
+
+      await this.pokerWsService.saveVote(votesToSave, room);
 
       const history = this.historyByRoom.get(room);
       if (history) {
@@ -464,6 +492,7 @@ export class PokerWsGateway
       this.historyByRoom.delete(room);
       this.timers.delete(room);
       this.pokerWsService.deactivateSession(room);
+      this.pokerWsService.leaveSession(room, client.data.participant.id);
 
       if (this.timers.has(room)) {
         clearInterval(this.timers.get(room).interval);
