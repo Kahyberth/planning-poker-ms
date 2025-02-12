@@ -5,6 +5,7 @@ import { CreatePokerDto } from './dto/create-poker.dto';
 import {
   joinSessionByCode,
   joinSession,
+  magicLink,
 } from 'src/commons/interfaces/Sessions';
 import { ValidateSession } from './dto/validate-session.dto';
 
@@ -32,6 +33,12 @@ export class PokerController {
   @MessagePattern('poker.get.all.session')
   getAllRooms() {
     return this.pokerService.getAllRooms();
+  }
+
+  @MessagePattern('poker.join.magic.link')
+  joinRoomByMagicLink(@Payload() data: magicLink) {
+    const { token, user_id } = data;
+    return this.pokerService.joinSessionByMagicLink(token, user_id);
   }
 
   // @MessagePattern('start.session')

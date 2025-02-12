@@ -17,3 +17,8 @@ export interface joinSessionByCode {
   session_code: string;
   user_id: string;
 }
+
+export interface magicLink {
+  token: string;
+  user_id: string;
+}

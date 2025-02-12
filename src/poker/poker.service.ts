@@ -13,6 +13,7 @@ import { envs } from 'src/commons/envs';
 import { Decks } from './entities/decks.entity';
 import { Chat } from './entities/chat.entity';
 import { ValidateSession } from './dto/validate-session.dto';
+import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
 
 interface Project {
   id: number;
@@ -22,6 +23,8 @@ interface Project {
 @Injectable()
 export class PokerService {
   constructor(
+    private readonly magicLinkService: MagicLinkService,
+
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
 
     @InjectRepository(Session)
@@ -284,6 +287,23 @@ export class PokerService {
         message: 'Error joining room',
         code: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
+      });
+    }
+  }
+
+  async joinSessionByMagicLink(token: string, user_id: string) {
+    try {
+      const { sessionId } = this.magicLinkService.verifyMagicLinkToken(token);
+
+      await this.joinSession(sessionId, user_id);
+
+      return {
+        message: 'Room joined successfully',
+      };
+    } catch {
+      throw new RpcException({
+        message: 'Invalid or expired token',
+        code: HttpStatus.UNAUTHORIZED,
       });
     }
   }

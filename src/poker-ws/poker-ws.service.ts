@@ -6,6 +6,7 @@ import { Vote } from 'src/poker/entities/vote.entity';
 import { History } from 'src/poker/entities/history.entity';
 import { Decks } from 'src/poker/entities/decks.entity';
 import { Join_Session } from 'src/poker/entities/join.session.entity';
+import { Chat } from 'src/poker/entities/chat.entity';
 
 @Injectable()
 export class PokerWsService {
@@ -21,6 +22,9 @@ export class PokerWsService {
 
     @InjectRepository(Join_Session)
     private readonly joinSessionRepository: Repository<Join_Session>,
+
+    @InjectRepository(Chat)
+    private readonly chatRepository: Repository<Chat>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -148,5 +152,38 @@ export class PokerWsService {
 
     session.is_active = false;
     await this.sessionRepository.save(session);
+  }
+
+  async saveChatMessage(
+    roomId: string,
+    user: any,
+    message: string,
+  ): Promise<Chat> {
+    const session = await this.sessionRepository.findOne({
+      where: { session_id: roomId },
+    });
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+
+    const chat = this.chatRepository.create({
+      username: user.name,
+      message,
+      user_id: user.id,
+      session,
+    });
+
+    return await this.chatRepository.save(chat);
+  }
+
+  async getChatHistory(roomId: string): Promise<Chat[]> {
+    const chats = await this.chatRepository
+      .createQueryBuilder('chat')
+      .innerJoin('chat.session', 'session')
+      .where('session.session_id = :roomId', { roomId })
+      .orderBy('chat.message_date', 'ASC')
+      .getMany();
+
+    return chats;
   }
 }

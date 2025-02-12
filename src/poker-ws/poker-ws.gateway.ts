@@ -125,6 +125,9 @@ export class PokerWsGateway
 
       participantsMap.set(user.id, participant_data);
 
+      const chatHistory = await this.pokerWsService.getChatHistory(room);
+      client.emit('chat-history', chatHistory);
+
       client.data.participant = participant_data;
       client.data.room = room;
       client.join(room);
@@ -172,12 +175,24 @@ export class PokerWsGateway
    * @returns  void
    */
   @SubscribeMessage('send-message')
-  onMessageReceived(client: Socket, payload: Chat) {
+  async onMessageReceived(client: Socket, payload: Chat) {
     const { message, room } = payload;
-    client.to(room).emit('message', {
-      message,
-      sender: client.data.participant,
-    });
+
+    try {
+      const savedChat = await this.pokerWsService.saveChatMessage(
+        room,
+        client.data.participant,
+        message,
+      );
+
+      this.wss.to(room).emit('message', {
+        message: savedChat.message,
+        sender: client.data.participant,
+        timestamp: savedChat.message_date,
+      });
+    } catch (error) {
+      client.emit('error', { value: error });
+    }
   }
 
   /**

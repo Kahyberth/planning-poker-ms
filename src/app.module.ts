@@ -4,6 +4,7 @@ import { PokerModule } from './poker/poker.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './commons/envs';
 import { CacheModule } from '@nestjs/cache-manager';
+import { MagicLinkService } from './magic-link-service/magic-link-service.service';
 
 @Module({
   imports: [
@@ -27,6 +28,6 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
   ],
   controllers: [],
-  providers: [],
+  providers: [MagicLinkService],
 })
 export class AppModule {}
