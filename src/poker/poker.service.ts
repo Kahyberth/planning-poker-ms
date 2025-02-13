@@ -332,26 +332,34 @@ export class PokerService {
 
   async validateSession(
     payload: ValidateSession,
-  ): Promise<{ message: string; isInSession: boolean }> {
-    const { session_id, user_id } = payload;
+  ): Promise<{ message: string; isInSession: boolean; session_id: string }> {
+    const { user_id } = payload;
 
-    const joinSession = await this.joinSessionRepository
-      .createQueryBuilder('js')
-      .innerJoin('js.session', 's')
-      .where('s.session_id = :session_id', { session_id })
-      .andWhere('js.user_id = :user_id', { user_id })
-      .andWhere('js.left_at IS NULL')
-      .getOne();
+    const joinSession = await this.joinSessionRepository.findOne({
+      where: {
+        user_id,
+        left_at: null,
+      },
+      relations: ['session'],
+    });
+
+    if (!joinSession.session.is_active) {
+      throw new RpcException({
+        message: 'session disabled',
+        code: HttpStatus.CONFLICT,
+      });
+    }
 
     if (!joinSession) {
       throw new RpcException({
         message: 'User not found in the session',
-        code: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: HttpStatus.NOT_FOUND,
       });
     }
 
     return {
       message: 'User found in the session',
+      session_id: joinSession.session.session_id,
       isInSession: true,
     };
   }
