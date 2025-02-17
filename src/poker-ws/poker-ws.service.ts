@@ -94,6 +94,7 @@ export class PokerWsService {
         session,
         user_id,
         left_at: IsNull(),
+        is_left: false,
       },
     });
 
@@ -103,6 +104,7 @@ export class PokerWsService {
 
     await this.joinSessionRepository.update(joinSession.join_session_id, {
       left_at: new Date(),
+      is_left: true,
     });
   }
 

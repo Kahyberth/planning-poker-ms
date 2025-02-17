@@ -8,7 +8,6 @@ import {
 import { PokerWsService } from './poker-ws.service';
 import { Socket } from 'socket.io';
 import { Server } from 'socket.io';
-import * as md5 from 'md5';
 import { envs } from 'src/commons/envs';
 import { Chat } from '../commons/interfaces/ChatData';
 
@@ -107,13 +106,13 @@ export class PokerWsGateway
     });
 
     try {
-      const user = client.handshake.auth.user_data;
+      const user = client.handshake.auth.userProfile;
 
       const participant_data = {
         id: user.id,
         name: user.name,
         email: user.email,
-        avatar: `https://www.gravatar.com/avatar/${md5(user.email.trim().toLowerCase())}?s=200&d=identicon`,
+        avatar: user.profile.profile_picture,
         role: user.role,
       };
 

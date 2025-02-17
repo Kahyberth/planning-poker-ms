@@ -8,8 +8,6 @@ import { VotingScale } from 'src/commons/enums/poker.enums';
 import { Join_Session } from './entities/join.session.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import axios from 'axios';
-import { envs } from 'src/commons/envs';
 import { Decks } from './entities/decks.entity';
 import { Chat } from './entities/chat.entity';
 import { ValidateSession } from './dto/validate-session.dto';
@@ -75,20 +73,6 @@ export class PokerService {
         });
       }
 
-      const user = await axios
-        .get(`${envs.CLIENT_GATEWAY_URL}/api/auth/find/user/${created_by}`)
-        .then((res) => {
-          return res.data;
-        });
-
-      if (!user) {
-        throw new RpcException({
-          message: 'User not found',
-          code: HttpStatus.NOT_FOUND,
-        });
-      }
-
-      // Create a new deck of cards
       const newDeck = this.decksRepository.create({
         deck_cards: deck,
         session: isSession,
@@ -100,7 +84,7 @@ export class PokerService {
 
       if (!session_code || session_code === '') {
         newSession = this.sessionRepository.create({
-          created_by: user[0].name,
+          created_by,
           session_name,
           created_at: new Date(),
           voting_scale: voting_scale || VotingScale.FIBONACCI,
@@ -119,7 +103,7 @@ export class PokerService {
       }
 
       newSession = this.sessionRepository.create({
-        created_by: user[0].name,
+        created_by,
         session_name,
         created_at: new Date(),
         voting_scale: voting_scale || VotingScale.FIBONACCI,
@@ -339,6 +323,7 @@ export class PokerService {
       where: {
         user_id,
         left_at: null,
+        is_left: false,
       },
       relations: ['session'],
     });

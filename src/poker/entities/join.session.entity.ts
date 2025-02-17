@@ -22,6 +22,9 @@ export class Join_Session {
   @Column({ type: 'timestamp', nullable: true })
   left_at: Date;
 
+  @Column('boolean', { default: false })
+  is_left: boolean;
+
   @ManyToOne(() => Session, (session) => session.join_session, {
     cascade: true,
   })
