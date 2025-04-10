@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './commons/envs';
 import { CacheModule } from '@nestjs/cache-manager';
 import { MagicLinkService } from './magic-link-service/magic-link-service.service';
+import { EstimationService } from './estimation/estimation.service';
 
 @Module({
   imports: [
@@ -28,6 +29,6 @@ import { MagicLinkService } from './magic-link-service/magic-link-service.servic
     }),
   ],
   controllers: [],
-  providers: [MagicLinkService],
+  providers: [MagicLinkService, EstimationService],
 })
 export class AppModule {}

@@ -8,10 +8,12 @@ import {
   magicLink,
 } from 'src/commons/interfaces/Sessions';
 import { ValidateSession } from './dto/validate-session.dto';
+import { EstimationService } from 'src/estimation/estimation.service';
+import { EstimationDto } from 'src/estimation/dto/estimation.dto';
 
 @Controller()
 export class PokerController {
-  constructor(private readonly pokerService: PokerService) {}
+  constructor(private readonly pokerService: PokerService, private readonly estimationService: EstimationService) {}
 
   @MessagePattern('poker.create.session')
   create(@Payload() createPokerDto: CreatePokerDto) {
@@ -50,4 +52,19 @@ export class PokerController {
   validateSession(@Payload() data: ValidateSession) {
     return this.pokerService.validateSession(data);
   }
+
+
+  @MessagePattern('poker.ai.estimation')
+  async getStoryEstimation(@Payload() data: EstimationDto) {
+    try {
+      console.log('Received data for estimation:', data);
+      const result = await this.estimationService.getStoryEstimation(data);
+      console.log('Estimation result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error in getStoryEstimation:', error);
+      throw new Error('Failed to get story estimation');
+    }
+  }
+
 }

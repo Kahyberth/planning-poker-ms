@@ -9,10 +9,11 @@ import { Join_Session } from './entities/join.session.entity';
 import { Decks } from './entities/decks.entity';
 import { History } from './entities/history.entity';
 import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
+import { EstimationService } from 'src/estimation/estimation.service';
 
 @Module({
   controllers: [PokerController],
-  providers: [PokerService, MagicLinkService],
+  providers: [PokerService, MagicLinkService, EstimationService],
   imports: [
     TypeOrmModule.forFeature([
       Session,
