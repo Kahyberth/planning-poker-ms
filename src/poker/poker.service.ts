@@ -48,6 +48,7 @@ export class PokerService {
         description,
         project_id,
         deck,
+        leader_id
       } = createPokerDto;
 
       const isSession = await this.sessionRepository.findOne({
@@ -92,6 +93,7 @@ export class PokerService {
           project_id,
           project_name: isProject.name,
           decks: newDeck,
+          leader_id,
         });
 
         const savedSession = await this.sessionRepository.save(newSession);
@@ -112,6 +114,7 @@ export class PokerService {
         project_id,
         project_name: isProject.name,
         decks: newDeck,
+        leader_id,
       });
 
       const savedSession = await this.sessionRepository.save(newSession);
@@ -355,6 +358,27 @@ export class PokerService {
       message: 'User found in the session',
       session_id: joinSession.session.session_id,
       isInSession: true,
+    };
+  }
+
+  async getSessionInfo(session_id: string) {
+    const session = await this.sessionRepository.findOne({
+      where: {
+        session_id,
+      },
+      relations: ['join_session'],
+    });
+
+    if (!session) {
+      throw new RpcException({
+        message: 'Session not found',
+        code: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    return {
+      message: 'Session info fetched successfully',
+      data: session,
     };
   }
 }

@@ -35,6 +35,11 @@ export class Session {
   created_by: string;
 
   @Column('text', {
+    nullable: false,
+  })
+  leader_id?: string;
+
+  @Column('text', {
     nullable: true,
   })
   description?: string;

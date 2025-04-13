@@ -67,4 +67,9 @@ export class PokerController {
     }
   }
 
+  @MessagePattern('poker.get.session')
+  getSession(@Payload() session_id: string) {
+    return this.pokerService.getSessionInfo(session_id);
+  }
+
 }

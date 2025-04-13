@@ -24,6 +24,9 @@ export class CreatePokerDto {
   @IsString()
   project_id: string;
 
+  @IsString()
+  leader_id: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => DeckDto)
