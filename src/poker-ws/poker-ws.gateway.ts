@@ -490,6 +490,20 @@ export class PokerWsGateway
         message: 'Session has ended',
       });
 
+      
+
+      const participantsMap = this.participants_in_room.get(room);
+      console.log('participantsMapx2', participantsMap);
+      if (participantsMap) {
+        console.log("participantsMap", participantsMap);
+        for (const [participantId, participant] of participantsMap.entries()) {
+          console.log(participantId, participant);
+          this.pokerWsService.leaveSession(room, participantId);
+        }
+      }
+
+
+
       const socketsInRoom = this.wss.sockets.adapter.rooms.get(room);
       if (socketsInRoom) {
         socketsInRoom.forEach((socketId) => {
@@ -506,7 +520,6 @@ export class PokerWsGateway
       this.historyByRoom.delete(room);
       this.timers.delete(room);
       this.pokerWsService.deactivateSession(room);
-      this.pokerWsService.leaveSession(room, client.data.participant.id);
 
       if (this.timers.has(room)) {
         clearInterval(this.timers.get(room).interval);
