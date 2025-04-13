@@ -319,6 +319,8 @@ export class PokerService {
   ): Promise<{ message: string; isInSession: boolean; session_id: string }> {
     const { user_id } = payload;
 
+    if (!user_id) return;
+
     const joinSession = await this.joinSessionRepository.findOne({
       where: {
         user_id,
@@ -328,17 +330,24 @@ export class PokerService {
       relations: ['session'],
     });
 
-    if (!joinSession.session.is_active) {
-      throw new RpcException({
-        message: 'session disabled',
-        code: HttpStatus.CONFLICT,
-      });
-    }
-
     if (!joinSession) {
       throw new RpcException({
         message: 'User not found in the session',
         code: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    if (!joinSession.session) {
+      throw new RpcException({
+        message: 'Session relation not found',
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    }
+
+    if (!joinSession.session.is_active) {
+      throw new RpcException({
+        message: 'session disabled',
+        code: HttpStatus.CONFLICT,
       });
     }
 
