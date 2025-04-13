@@ -7,6 +7,7 @@ import { History } from 'src/poker/entities/history.entity';
 import { Decks } from 'src/poker/entities/decks.entity';
 import { Join_Session } from 'src/poker/entities/join.session.entity';
 import { Chat } from 'src/poker/entities/chat.entity';
+import { PokerService } from 'src/poker/poker.service';
 
 @Injectable()
 export class PokerWsService {
@@ -25,6 +26,8 @@ export class PokerWsService {
 
     @InjectRepository(Chat)
     private readonly chatRepository: Repository<Chat>,
+
+    private readonly pokerService: PokerService,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -187,5 +190,15 @@ export class PokerWsService {
       .getMany();
 
     return chats;
+  }
+
+  async roomCreator(session_id: string): Promise<string | undefined> {
+    return this.pokerService.getSessionInfo(session_id).then((session) => {
+      if (session) {
+        return session.data.leader_id;
+      } else {
+        this.logger.error('Session not found');
+      }
+    });
   }
 }

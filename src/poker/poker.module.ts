@@ -24,5 +24,6 @@ import { EstimationService } from 'src/estimation/estimation.service';
       History,
     ]),
   ],
+  exports: [PokerService]
 })
 export class PokerModule {}

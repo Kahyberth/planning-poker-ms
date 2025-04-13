@@ -8,6 +8,7 @@ import { Vote } from 'src/poker/entities/vote.entity';
 import { Join_Session } from 'src/poker/entities/join.session.entity';
 import { Decks } from 'src/poker/entities/decks.entity';
 import { History } from 'src/poker/entities/history.entity';
+import { PokerModule } from 'src/poker/poker.module';
 
 @Module({
   providers: [PokerWsGateway, PokerWsService],
@@ -20,6 +21,7 @@ import { History } from 'src/poker/entities/history.entity';
       Decks,
       History,
     ]),
+    PokerModule
   ],
 })
 export class PokerWsModule {}

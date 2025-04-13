@@ -132,6 +132,7 @@ export class PokerWsGateway
       client.join(room);
       client.emit('success', { value: 'Joined room successfully' });
       this.emitParticipantList(room);
+      this.handleRoomCreator(client, room);
 
       if (this.votes.has(room) && this.votes.get(room).size > 0) {
         this.emitVoteUpdate(room);
@@ -165,6 +166,23 @@ export class PokerWsGateway
   handleLeaveRoom(client: Socket, room: string) {
     client.leave(room);
     this.pokerWsService.leaveSession(room, client.data.participant.id);
+  }
+
+  /**
+   * @description  Get room creator
+   * @param client
+   * @param room
+   * @returns  void
+   */
+  async handleRoomCreator(client: Socket, room: string) {
+    const room_leader = await this.pokerWsService.roomCreator(room);
+    if (room_leader) {
+      client.emit('room-creator', room_leader);
+      return;
+    } else {
+      client.emit('error', { value: 'Room not found' });
+      return;
+    }
   }
 
   /**
@@ -493,7 +511,6 @@ export class PokerWsGateway
       
 
       const participantsMap = this.participants_in_room.get(room);
-      console.log('participantsMapx2', participantsMap);
       if (participantsMap) {
         console.log("participantsMap", participantsMap);
         for (const [participantId, participant] of participantsMap.entries()) {
