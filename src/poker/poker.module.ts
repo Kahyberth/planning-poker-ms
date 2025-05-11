@@ -10,6 +10,8 @@ import { Decks } from './entities/decks.entity';
 import { History } from './entities/history.entity';
 import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
 import { EstimationService } from 'src/estimation/estimation.service';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { envs } from 'src/commons/envs';
 
 @Module({
   controllers: [PokerController],
@@ -22,6 +24,15 @@ import { EstimationService } from 'src/estimation/estimation.service';
       Join_Session,
       Decks,
       History,
+    ]),
+    ClientsModule.register([
+      {
+        name: 'NATS_SERVICE',
+        transport: Transport.NATS,
+        options: {
+          servers: envs.NATS_SERVERS,
+        },
+      },
     ]),
   ],
   exports: [PokerService]

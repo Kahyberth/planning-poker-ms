@@ -96,7 +96,6 @@ export class PokerWsService {
       where: {
         session,
         user_id,
-        left_at: IsNull(),
         is_left: false,
       },
     });

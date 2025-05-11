@@ -2,7 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CreatePokerDto } from './dto/create-poker.dto';
 import { IsNull, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RpcException } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { Session } from './entities/session.entity';
 import { VotingScale } from 'src/commons/enums/poker.enums';
 import { Join_Session } from './entities/join.session.entity';
@@ -12,9 +12,10 @@ import { Decks } from './entities/decks.entity';
 import { Chat } from './entities/chat.entity';
 import { ValidateSession } from './dto/validate-session.dto';
 import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
+import { firstValueFrom } from 'rxjs';
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -24,6 +25,8 @@ export class PokerService {
     private readonly magicLinkService: MagicLinkService,
 
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+
+    @Inject('NATS_SERVICE') private readonly client: ClientProxy,
 
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
@@ -58,7 +61,7 @@ export class PokerService {
         },
       });
 
-      const isProject = this.findProjectSessions(project_id);
+      const isProject = await this.findProjectById(project_id);
 
       if (!isProject) {
         throw new RpcException({
@@ -133,30 +136,62 @@ export class PokerService {
     }
   }
 
-  findProjectSessions(project_id: string) {
-    const mockProjects: Project[] = [
-      { id: 1, name: 'Proyecto Alfa' },
-      { id: 2, name: 'Proyecto Beta' },
-      { id: 3, name: 'Proyecto Gamma' },
-      { id: 4, name: 'Proyecto Delta' },
-      { id: 5, name: 'Proyecto Epsilon' },
-      { id: 6, name: 'Proyecto Zeta' },
-      { id: 7, name: 'Proyecto Eta' },
-      { id: 8, name: 'Proyecto Theta' },
-      { id: 9, name: 'Proyecto Iota' },
-      { id: 10, name: 'Proyecto Kappa' },
-    ];
+  async findProjectById(project_id: string): Promise<Project> {
+    try {
+      console.log(`Intentando obtener proyecto con ID: ${project_id}`);
+      
+      // Verificar que el ID del proyecto no sea nulo o vacío
+      if (!project_id) {
+        console.error('El ID del proyecto es nulo o vacío');
+        throw new RpcException({
+          message: 'Project ID is required',
+          code: HttpStatus.BAD_REQUEST,
+        });
+      }
+      
+      console.log(`Enviando solicitud a projects.findOne.project con ID: ${project_id}`);
+      const project = await firstValueFrom(
+        this.client.send('projects.findOne.project', project_id)
+      );
+      
+      console.log('Respuesta recibida del microservicio de proyectos:', JSON.stringify(project, null, 2));
 
-    const project = mockProjects.find((p) => p.id === +project_id);
+      if (!project || project.length === 0) {
+        console.error(`No se encontró ningún proyecto con ID: ${project_id}`);
+        throw new RpcException({
+          message: 'Project not found',
+          code: HttpStatus.NOT_FOUND,
+        });
+      }
 
-    if (!project) {
+      // The findProjectById method in projects-ms returns an array
+      const projectData = Array.isArray(project) ? project[0] : project;
+      
+      if (!projectData || !projectData.id || !projectData.name) {
+        console.error('El proyecto no tiene el formato esperado:', projectData);
+        throw new RpcException({
+          message: 'Invalid project data format',
+          code: HttpStatus.INTERNAL_SERVER_ERROR,
+        });
+      }
+      
+      console.log(`Proyecto encontrado: ID=${projectData.id}, Nombre=${projectData.name}`);
+      
+      return {
+        id: projectData.id,
+        name: projectData.name
+      };
+    } catch (error) {
+      console.error(`Error detallado al obtener proyecto: ${JSON.stringify(error)}`);
+      if (error instanceof RpcException) {
+        throw error;
+      }
       throw new RpcException({
-        message: 'Project not found',
-        code: HttpStatus.NOT_FOUND,
+        message: 'Error fetching project',
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
       });
     }
-
-    return project;
   }
 
   async joinSession(session_id: string, user_id: string) {
@@ -247,6 +282,7 @@ export class PokerService {
       const isUserInSession = await this.joinSessionRepository.findOne({
         where: {
           user_id,
+          is_left: false,
         },
       });
 

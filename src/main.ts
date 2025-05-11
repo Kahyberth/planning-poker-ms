@@ -11,7 +11,7 @@ async function bootstrap() {
     {
       transport: Transport.NATS,
       options: {
-        servers: ['nats://localhost:4222'],
+        servers: envs.NATS_SERVERS,
       },
     },
   );
@@ -20,7 +20,11 @@ async function bootstrap() {
   });
 
   const ws = await NestFactory.create(AppModule);
-  ws.enableCors();
+  ws.enableCors({
+    origin: envs.ORIGIN_CORS,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  });
   await ws.listen(envs.WS_PORT).then(() => {
     logger.log(`Poker-websockets is listening on ${envs.WS_PORT}`);
   });
