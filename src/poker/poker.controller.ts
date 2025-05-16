@@ -5,7 +5,6 @@ import { CreatePokerDto } from './dto/create-poker.dto';
 import {
   joinSessionByCode,
   joinSession,
-  magicLink,
 } from 'src/commons/interfaces/Sessions';
 import { ValidateSession } from './dto/validate-session.dto';
 import { EstimationService } from 'src/estimation/estimation.service';
@@ -13,7 +12,10 @@ import { EstimationDto } from 'src/estimation/dto/estimation.dto';
 
 @Controller()
 export class PokerController {
-  constructor(private readonly pokerService: PokerService, private readonly estimationService: EstimationService) {}
+  constructor(
+    private readonly pokerService: PokerService,
+    private readonly estimationService: EstimationService,
+  ) {}
 
   @MessagePattern('poker.create.session')
   create(@Payload() createPokerDto: CreatePokerDto) {
@@ -37,12 +39,6 @@ export class PokerController {
     return this.pokerService.getAllRooms();
   }
 
-  @MessagePattern('poker.join.magic.link')
-  joinRoomByMagicLink(@Payload() data: magicLink) {
-    const { token, user_id } = data;
-    return this.pokerService.joinSessionByMagicLink(token, user_id);
-  }
-
   // @MessagePattern('start.session')
   // startSession(@Payload() session_code: string) {
   //   return this.pokerService.startSession(session_code);
@@ -52,7 +48,6 @@ export class PokerController {
   validateSession(@Payload() data: ValidateSession) {
     return this.pokerService.validateSession(data);
   }
-
 
   @MessagePattern('poker.ai.estimation')
   async getStoryEstimation(@Payload() data: EstimationDto) {
@@ -71,5 +66,4 @@ export class PokerController {
   getSession(@Payload() session_id: string) {
     return this.pokerService.getSessionInfo(session_id);
   }
-
 }

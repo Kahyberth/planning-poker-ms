@@ -1,19 +1,18 @@
 import { Module } from '@nestjs/common';
-import { PokerService } from './poker.service';
-import { PokerController } from './poker.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Session } from './entities/session.entity';
-import { Vote } from './entities/vote.entity';
+import { EstimationService } from 'src/estimation/estimation.service';
 import { Chat } from './entities/chat.entity';
-import { Join_Session } from './entities/join.session.entity';
 import { Decks } from './entities/decks.entity';
 import { History } from './entities/history.entity';
-import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
-import { EstimationService } from 'src/estimation/estimation.service';
+import { Join_Session } from './entities/join.session.entity';
+import { Session } from './entities/session.entity';
+import { Vote } from './entities/vote.entity';
+import { PokerController } from './poker.controller';
+import { PokerService } from './poker.service';
 
 @Module({
   controllers: [PokerController],
-  providers: [PokerService, MagicLinkService, EstimationService],
+  providers: [PokerService, EstimationService],
   imports: [
     TypeOrmModule.forFeature([
       Session,
@@ -24,6 +23,6 @@ import { EstimationService } from 'src/estimation/estimation.service';
       History,
     ]),
   ],
-  exports: [PokerService]
+  exports: [PokerService],
 })
 export class PokerModule {}

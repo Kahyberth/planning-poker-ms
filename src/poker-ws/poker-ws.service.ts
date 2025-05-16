@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Session } from '../poker/entities/session.entity';
-import { DataSource, IsNull, Repository } from 'typeorm';
-import { Vote } from 'src/poker/entities/vote.entity';
-import { History } from 'src/poker/entities/history.entity';
-import { Decks } from 'src/poker/entities/decks.entity';
-import { Join_Session } from 'src/poker/entities/join.session.entity';
 import { Chat } from 'src/poker/entities/chat.entity';
+import { Decks } from 'src/poker/entities/decks.entity';
+import { History } from 'src/poker/entities/history.entity';
+import { Join_Session } from 'src/poker/entities/join.session.entity';
+import { Vote } from 'src/poker/entities/vote.entity';
 import { PokerService } from 'src/poker/poker.service';
+import { DataSource, IsNull, Repository } from 'typeorm';
+import { Session } from '../poker/entities/session.entity';
+import { SessionStatus } from 'src/commons/enums/poker.enums';
 
 @Injectable()
 export class PokerWsService {
@@ -111,6 +112,16 @@ export class PokerWsService {
     });
   }
 
+  async checkSessionStatus(session_id: string) {
+    const session = await this.sessionRepository.findOne({
+      where: { session_id },
+    });
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+    return session;
+  }
+
   async saveHistory(historyArray: any[], session_id: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.startTransaction();
@@ -200,5 +211,23 @@ export class PokerWsService {
         this.logger.error('Session not found');
       }
     });
+  }
+
+  async wasUserInSession(room: string, userId: string): Promise<boolean> {
+    const session = await this.sessionRepository.findOne({
+      where: { session_id: room },
+      relations: ['join_session'],
+    });
+    return (
+      session?.join_session.some((p) => p.user_id === userId && !p.is_left) ||
+      false
+    );
+  }
+
+  async startSession(room: string): Promise<void> {
+    await this.sessionRepository.update(
+      { session_id: room },
+      { is_started: true, status: SessionStatus.VOTING },
+    );
   }
 }

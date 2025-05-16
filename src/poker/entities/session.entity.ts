@@ -1,20 +1,20 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
   OneToMany,
   OneToOne,
-  JoinColumn,
-  Index,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 
 import { SessionStatus, VotingScale } from 'src/commons/enums/poker.enums';
+import { Chat } from './chat.entity';
+import { Decks } from './decks.entity';
+import { History } from './history.entity';
 import { Join_Session } from './join.session.entity';
 import { Vote } from './vote.entity';
-import { Chat } from './chat.entity';
-import { History } from './history.entity';
-import { Decks } from './decks.entity';
 
 @Entity()
 @Index('IDX_ACTIVE_SESSION_NAME', ['session_name'], {
@@ -46,6 +46,9 @@ export class Session {
 
   @Column({ default: true })
   is_active: boolean;
+
+  @Column({ default: false })
+  is_started: boolean;
 
   @Column({
     type: 'text',

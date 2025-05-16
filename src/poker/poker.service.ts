@@ -1,17 +1,16 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { CreatePokerDto } from './dto/create-poker.dto';
-import { IsNull, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { RpcException } from '@nestjs/microservices';
-import { Session } from './entities/session.entity';
-import { VotingScale } from 'src/commons/enums/poker.enums';
-import { Join_Session } from './entities/join.session.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { Decks } from './entities/decks.entity';
-import { Chat } from './entities/chat.entity';
+import { VotingScale } from 'src/commons/enums/poker.enums';
+import { IsNull, Repository } from 'typeorm';
+import { CreatePokerDto } from './dto/create-poker.dto';
 import { ValidateSession } from './dto/validate-session.dto';
-import { MagicLinkService } from 'src/magic-link-service/magic-link-service.service';
+import { Chat } from './entities/chat.entity';
+import { Decks } from './entities/decks.entity';
+import { Join_Session } from './entities/join.session.entity';
+import { Session } from './entities/session.entity';
 
 interface Project {
   id: number;
@@ -21,8 +20,6 @@ interface Project {
 @Injectable()
 export class PokerService {
   constructor(
-    private readonly magicLinkService: MagicLinkService,
-
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
 
     @InjectRepository(Session)
@@ -48,7 +45,7 @@ export class PokerService {
         description,
         project_id,
         deck,
-        leader_id
+        leader_id,
       } = createPokerDto;
 
       const isSession = await this.sessionRepository.findOne({
@@ -274,23 +271,6 @@ export class PokerService {
         message: 'Error joining room',
         code: HttpStatus.INTERNAL_SERVER_ERROR,
         error: error.message,
-      });
-    }
-  }
-
-  async joinSessionByMagicLink(token: string, user_id: string) {
-    try {
-      const { sessionId } = this.magicLinkService.verifyMagicLinkToken(token);
-
-      await this.joinSession(sessionId, user_id);
-
-      return {
-        message: 'Room joined successfully',
-      };
-    } catch {
-      throw new RpcException({
-        message: 'Invalid or expired token',
-        code: HttpStatus.UNAUTHORIZED,
       });
     }
   }
