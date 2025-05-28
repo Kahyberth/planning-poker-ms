@@ -1,6 +1,6 @@
 import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
-import { DecksType } from 'src/commons/types/decks.type';
+import { DecksType } from '../../commons/types/decks.type';
 import { Session } from './session.entity';
 
 @Entity()

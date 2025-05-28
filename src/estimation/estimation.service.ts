@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { OpenAI } from 'openai';
-import { envs } from 'src/commons/envs';
+import { envs } from '../commons/envs';
 
 @Injectable()
 export class EstimationService {
   private openai = new OpenAI({
     baseURL: 'https://api.deepseek.com',
-    apiKey: `${envs.DEEPSEEK_API_KEY}`
-});
+    apiKey: `${envs.DEEPSEEK_API_KEY}`,
+  });
 
   async getStoryEstimation(data: {
     title: string;
@@ -24,19 +24,18 @@ export class EstimationService {
       messages: [
         {
           role: 'user',
-          content: 'Eres una IA que participa en sesiones de Planning Poker y ayuda sugiriendo estimaciones.',
+          content:
+            'Eres una IA que participa en sesiones de Planning Poker y ayuda sugiriendo estimaciones.',
         },
         { role: 'user', content: prompt },
       ],
       model: 'deepseek-chat',
     });
 
-    let responseText  = completion.choices[0].message.content;
+    let responseText = completion.choices[0].message.content;
     responseText = responseText.replace(/```json|```/g, '').trim();
     return JSON.parse(responseText);
   }
-
-  
 
   private createPrompt({
     title,

@@ -6,7 +6,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { envs } from 'src/commons/envs';
+import { envs } from '../commons/envs';
 import { Chat } from '../commons/interfaces/ChatData';
 import { PokerWsService } from './poker-ws.service';
 

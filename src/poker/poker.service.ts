@@ -3,7 +3,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import { VotingScale } from 'src/commons/enums/poker.enums';
+import { VotingScale } from '../commons/enums/poker.enums';
 import { IsNull, Repository } from 'typeorm';
 import { CreatePokerDto } from './dto/create-poker.dto';
 import { ValidateSession } from './dto/validate-session.dto';
