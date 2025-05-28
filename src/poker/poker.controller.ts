@@ -2,13 +2,10 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { PokerService } from './poker.service';
 import { CreatePokerDto } from './dto/create-poker.dto';
-import {
-  joinSessionByCode,
-  joinSession,
-} from 'src/commons/interfaces/Sessions';
+import { joinSessionByCode, joinSession } from '../commons/interfaces/Sessions';
 import { ValidateSession } from './dto/validate-session.dto';
-import { EstimationService } from 'src/estimation/estimation.service';
-import { EstimationDto } from 'src/estimation/dto/estimation.dto';
+import { EstimationService } from '../estimation/estimation.service';
+import { EstimationDto } from '../estimation/dto/estimation.dto';
 
 @Controller()
 export class PokerController {

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EstimationService } from 'src/estimation/estimation.service';
+import { EstimationService } from '../estimation/estimation.service';
 import { Chat } from './entities/chat.entity';
 import { Decks } from './entities/decks.entity';
 import { History } from './entities/history.entity';

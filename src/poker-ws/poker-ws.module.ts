@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { PokerWsService } from './poker-ws.service';
 import { PokerWsGateway } from './poker-ws.gateway';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Session } from 'src/poker/entities/session.entity';
-import { Chat } from 'src/poker/entities/chat.entity';
-import { Vote } from 'src/poker/entities/vote.entity';
-import { Join_Session } from 'src/poker/entities/join.session.entity';
-import { Decks } from 'src/poker/entities/decks.entity';
-import { History } from 'src/poker/entities/history.entity';
-import { PokerModule } from 'src/poker/poker.module';
+import { Session } from '../poker/entities/session.entity';
+import { Chat } from '../poker/entities/chat.entity';
+import { Vote } from '../poker/entities/vote.entity';
+import { Join_Session } from '../poker/entities/join.session.entity';
+import { Decks } from '../poker/entities/decks.entity';
+import { History } from '../poker/entities/history.entity';
+import { PokerModule } from '../poker/poker.module';
 
 @Module({
   providers: [PokerWsGateway, PokerWsService],
@@ -21,7 +21,7 @@ import { PokerModule } from 'src/poker/poker.module';
       Decks,
       History,
     ]),
-    PokerModule
+    PokerModule,
   ],
 })
 export class PokerWsModule {}

@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Chat } from 'src/poker/entities/chat.entity';
-import { Decks } from 'src/poker/entities/decks.entity';
-import { History } from 'src/poker/entities/history.entity';
-import { Join_Session } from 'src/poker/entities/join.session.entity';
-import { Vote } from 'src/poker/entities/vote.entity';
-import { PokerService } from 'src/poker/poker.service';
+import { Chat } from '../poker/entities/chat.entity';
+import { Decks } from '../poker/entities/decks.entity';
+import { History } from '../poker/entities/history.entity';
+import { Join_Session } from '../poker/entities/join.session.entity';
+import { Vote } from '../poker/entities/vote.entity';
+import { PokerService } from '../poker/poker.service';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import { Session } from '../poker/entities/session.entity';
-import { SessionStatus } from 'src/commons/enums/poker.enums';
+import { SessionStatus } from '../commons/enums/poker.enums';
 
 @Injectable()
 export class PokerWsService {

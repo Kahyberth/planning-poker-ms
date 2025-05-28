@@ -9,7 +9,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-import { SessionStatus, VotingScale } from 'src/commons/enums/poker.enums';
+import { SessionStatus, VotingScale } from '../../commons/enums/poker.enums';
 import { Chat } from './chat.entity';
 import { Decks } from './decks.entity';
 import { History } from './history.entity';
