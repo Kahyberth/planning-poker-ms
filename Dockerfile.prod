@@ -38,5 +38,5 @@ USER bun
 
 EXPOSE 3001
 
-CMD ["bun", "start:prod:build"]
+CMD ["bun", "dist/main"]
 
