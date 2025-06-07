@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { envs } from '../commons/envs';
 import { Chat } from '../commons/interfaces/ChatData';
 import { PokerWsService } from './poker-ws.service';
+import { Logger } from '@nestjs/common';
 
 interface Participant {
   id: string;
@@ -28,6 +29,7 @@ export class PokerWsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() wss: Server;
+  private readonly logger = new Logger(PokerWsGateway.name);
   constructor(private readonly pokerWsService: PokerWsService) {}
 
   participants_in_room = new Map<string, Map<string, Participant>>();
@@ -53,7 +55,7 @@ export class PokerWsGateway
   private leaderOverrides = new Map<string, boolean>();
 
   handleConnection(client: Socket) {
-    console.log('Client connected:', client.id);
+    this.logger.log(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
@@ -63,7 +65,6 @@ export class PokerWsGateway
     if (room && participant) {
       const participantsMap = this.participants_in_room.get(room);
       if (participantsMap) {
-        // Se elimina usando el user.id en lugar del client.id
         participantsMap.delete(participant.id);
         if (participantsMap.size === 0) {
           this.participants_in_room.delete(room);
@@ -107,8 +108,10 @@ export class PokerWsGateway
       return;
     }
 
+    const currentStoryIndex = await this.pokerWsService.getCurrentStoryIndex(room);
+
     if (!this.roomStates.has(room)) {
-      this.roomStates.set(room, { stories, currentStoryIndex: 0 });
+      this.roomStates.set(room, { stories, currentStoryIndex });
     }
 
     if (this.historyByRoom.has(room)) {
@@ -121,11 +124,11 @@ export class PokerWsGateway
       client.emit('timer-started', { duration: timer.timeLeft });
     }
 
-    const { currentStoryIndex } = this.roomStates.get(room);
+    const { currentStoryIndex: roomCurrentStoryIndex } = this.roomStates.get(room);
 
     client.emit('story-changed', {
-      story: stories[currentStoryIndex],
-      isLast: currentStoryIndex === stories.length - 1,
+      story: stories[roomCurrentStoryIndex],
+      isLast: roomCurrentStoryIndex === stories.length - 1,
     });
 
     try {
@@ -167,7 +170,7 @@ export class PokerWsGateway
       }
     } catch (error) {
       client.emit('error', { value: 'Token verification failed' });
-      console.log('error', error);
+      this.logger.error(`Error in handleJoinRoom: ${error}`);
     }
   }
 
@@ -384,7 +387,6 @@ export class PokerWsGateway
         .map((v) => parseInt(v.value))
         .filter((v) => !isNaN(v));
 
-      // Check if all votes are valid Fibonacci numbers
       const allValidFibonacci = numericVotes.every((v) =>
         this.isValidFibonacciNumber(v),
       );
@@ -466,7 +468,6 @@ export class PokerWsGateway
       return;
     }
 
-    // Set all votes to the leader's choice
     if (!this.votes.has(room)) {
       this.votes.set(room, new Map());
     }
@@ -479,7 +480,7 @@ export class PokerWsGateway
       });
     });
 
-    // Mark that leader has used override for this story
+    
     this.leaderOverrides.set(room, true);
 
     this.emitVoteUpdate(room);
@@ -508,7 +509,7 @@ export class PokerWsGateway
       return;
     }
 
-    // Check for consensus or leader override before allowing to move to next story
+    
     if (!this.hasConsensus(votesMap) && !this.leaderOverrides.get(room)) {
       client.emit('error', {
         value:
@@ -521,7 +522,7 @@ export class PokerWsGateway
       const numericVotes = Array.from(this.votes.get(room).values())
         .map((v) => parseInt(v.value))
         .filter((v) => !isNaN(v));
-      const average = numericVotes[0]; // Since we have consensus or leader override, all votes are the same
+      const average = numericVotes[0]; 
 
       const votesToSave = Array.from(votesMap.values()).map((vote) => ({
         story_id: stories[currentStoryIndex].id,
@@ -550,12 +551,14 @@ export class PokerWsGateway
 
       roomState.currentStoryIndex = (currentStoryIndex + 1) % stories.length;
       const newIndex = roomState.currentStoryIndex;
+      
+      await this.pokerWsService.updateCurrentStoryIndex(room, newIndex);
+
       this.wss.to(room).emit('story-changed', {
         story: stories[newIndex],
         isLast: newIndex === stories.length - 1,
       });
 
-      // Reset votes and leader override for next story
       this.votes.delete(room);
       this.leaderOverrides.delete(room);
       this.wss.to(room).emit('voting-repeated', {
@@ -609,6 +612,7 @@ export class PokerWsGateway
         card_value: this.roomAvarage.get(room),
         history_date: new Date(),
       };
+      
 
       this.historyByRoom.get(room).push(newRecord);
 
@@ -639,9 +643,7 @@ export class PokerWsGateway
 
       const participantsMap = this.participants_in_room.get(room);
       if (participantsMap) {
-        console.log('participantsMap', participantsMap);
         for (const [participantId, participant] of participantsMap.entries()) {
-          console.log(participantId, participant);
           this.pokerWsService.leaveSession(room, participantId);
         }
       }
@@ -667,9 +669,11 @@ export class PokerWsGateway
         clearInterval(this.timers.get(room).interval);
       }
 
+      this.logger.log(`Session ended: ${room}`);
+
       client.emit('success', { value: 'Session ended successfully' });
     } catch (error) {
-      console.error('Error ending session:', error);
+      this.logger.error(`Error ending session: ${error}`);
       client.emit('error', { value: 'Failed to end session' });
     }
   }
@@ -698,6 +702,9 @@ export class PokerWsGateway
 
     try {
       await this.pokerWsService.startSession(room);
+      await this.pokerWsService.updateCurrentStoryIndex(room, 0);
+      this.logger.log(`Session started: ${room}`);
+      
       this.wss.to(room).emit('session-started', {
         message: 'Session has started',
       });

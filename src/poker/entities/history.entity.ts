@@ -12,8 +12,8 @@ export class History {
   @PrimaryGeneratedColumn('uuid')
   history_id: string;
 
-  @Column()
-  story_id: number;
+  @Column('text')
+  story_id: string;
 
   @Column()
   card_value: string;

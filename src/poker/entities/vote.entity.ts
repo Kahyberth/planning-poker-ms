@@ -15,7 +15,7 @@ export class Vote {
   vote_id: string;
 
   @Column()
-  story_id: number;
+  story_id: string;
 
   @Column()
   user_id: string;

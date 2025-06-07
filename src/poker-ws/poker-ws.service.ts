@@ -230,4 +230,18 @@ export class PokerWsService {
       { is_started: true, status: SessionStatus.VOTING },
     );
   }
+
+  async getCurrentStoryIndex(session_id: string): Promise<number> {
+    const session = await this.sessionRepository.findOne({
+      where: { session_id }
+    });
+    return session?.current_story_index || 0;
+  }
+
+  async updateCurrentStoryIndex(session_id: string, index: number): Promise<void> {
+    await this.sessionRepository.update(
+      { session_id },
+      { current_story_index: index }
+    );
+  }
 }

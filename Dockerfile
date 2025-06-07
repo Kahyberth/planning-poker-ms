@@ -36,7 +36,7 @@ COPY --from=builder /usr/src/app/dist dist
 
 USER bun
 
-EXPOSE 3001
+EXPOSE 4003
 
-CMD ["bun", "start:prod:build"]
+CMD ["bun", "dist/main.js"]
 

@@ -1,27 +1,19 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { RpcException } from '@nestjs/microservices';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Cache } from 'cache-manager';
 import { VotingScale } from '../commons/enums/poker.enums';
 import { IsNull, Repository } from 'typeorm';
 import { CreatePokerDto } from './dto/create-poker.dto';
 import { ValidateSession } from './dto/validate-session.dto';
-import { Chat } from './entities/chat.entity';
 import { Decks } from './entities/decks.entity';
 import { Join_Session } from './entities/join.session.entity';
 import { Session } from './entities/session.entity';
-
-interface Project {
-  id: number;
-  name: string;
-}
+import { catchError, firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class PokerService {
+  private readonly logger = new Logger(PokerService.name);
   constructor(
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
 
@@ -31,8 +23,8 @@ export class PokerService {
     @InjectRepository(Decks)
     private readonly decksRepository: Repository<Decks>,
 
-    @InjectRepository(Chat)
-    private readonly chatRepository: Repository<Chat>,
+    @Inject('NATS_SERVICE')
+    private readonly client: ClientProxy,
   ) {}
 
   async createSession(createPokerDto: CreatePokerDto) {
@@ -55,7 +47,8 @@ export class PokerService {
         },
       });
 
-      const isProject = this.findProjectSessions(project_id);
+      const [isProject] = await this.findProjectSessions(project_id);
+
 
       if (!isProject) {
         throw new RpcException({
@@ -130,30 +123,17 @@ export class PokerService {
     }
   }
 
-  findProjectSessions(project_id: string) {
-    const mockProjects: Project[] = [
-      { id: 1, name: 'Proyecto Alfa' },
-      { id: 2, name: 'Proyecto Beta' },
-      { id: 3, name: 'Proyecto Gamma' },
-      { id: 4, name: 'Proyecto Delta' },
-      { id: 5, name: 'Proyecto Epsilon' },
-      { id: 6, name: 'Proyecto Zeta' },
-      { id: 7, name: 'Proyecto Eta' },
-      { id: 8, name: 'Proyecto Theta' },
-      { id: 9, name: 'Proyecto Iota' },
-      { id: 10, name: 'Proyecto Kappa' },
-    ];
+  
 
-    const project = mockProjects.find((p) => p.id === +project_id);
-
-    if (!project) {
-      throw new RpcException({
-        message: 'Project not found',
-        code: HttpStatus.NOT_FOUND,
-      });
-    }
-
-    return project;
+  private async findProjectSessions(project_id: string) {
+    return await firstValueFrom(
+      this.client.send('projects.findOne.project', project_id).pipe(
+        catchError((error) => {
+          this.logger.error(`Error fetching project ${project_id}`, error.stack);
+          throw error;
+        }),
+      ),
+    );
   }
 
   async joinSession(session_id: string, user_id: string) {

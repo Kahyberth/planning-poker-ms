@@ -85,6 +85,12 @@ export class Session {
   })
   capacity: number;
 
+  @Column({
+    type: 'int',
+    default: 0
+  })
+  current_story_index: number;
+
   @OneToMany(() => Join_Session, (join_session) => join_session.session)
   join_session: Join_Session[];
 
