@@ -30,7 +30,20 @@ export class PokerWsGateway
 {
   @WebSocketServer() wss: Server;
   private readonly logger = new Logger(PokerWsGateway.name);
-  constructor(private readonly pokerWsService: PokerWsService) {}
+  private cleanupInterval: NodeJS.Timeout;
+
+  constructor(private readonly pokerWsService: PokerWsService) {
+    this.cleanupInterval = setInterval(
+      () => this.cleanupInactiveRooms(),
+      60000,
+    );
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+  }
 
   participants_in_room = new Map<string, Map<string, Participant>>();
   private votes = new Map<
@@ -54,6 +67,57 @@ export class PokerWsGateway
 
   private leaderOverrides = new Map<string, boolean>();
 
+  private roomCreationTime = new Map<string, number>();
+  private readonly ROOM_TIMEOUT = 2 * 60 * 1000;
+  private async cleanupInactiveRooms() {
+    const now = Date.now();
+    for (const [room, creationTime] of this.roomCreationTime.entries()) {
+      if (now - creationTime >= this.ROOM_TIMEOUT) {
+        const participantsMap = this.participants_in_room.get(room);
+        if (!participantsMap || participantsMap.size === 0) {
+          await this.cleanupRoom(room);
+        }
+      }
+    }
+  }
+
+  private async cleanupRoom(room: string) {
+    this.logger.log(`Cleaning up inactive room: ${room}`);
+
+    this.participants_in_room.delete(room);
+    this.votes.delete(room);
+    this.roomStates.delete(room);
+    this.roomAvarage.delete(room);
+    this.historyByRoom.delete(room);
+    this.leaderOverrides.delete(room);
+    this.roomCreationTime.delete(room);
+
+    if (this.timers.has(room)) {
+      clearInterval(this.timers.get(room).interval);
+      this.timers.delete(room);
+    }
+
+    const socketsInRoom = this.wss.sockets.adapter.rooms.get(room);
+    if (socketsInRoom) {
+      socketsInRoom.forEach((socketId) => {
+        const socketClient = this.wss.sockets.sockets.get(socketId);
+        if (socketClient) {
+          socketClient.leave(room);
+          socketClient.disconnect(true);
+        }
+      });
+    }
+
+    const participantsMap = this.participants_in_room.get(room);
+    if (participantsMap) {
+      for (const [userId, _] of participantsMap) {
+        await this.pokerWsService.leaveSession(room, userId);
+      }
+    }
+
+    await this.pokerWsService.deactivateSession(room);
+  }
+
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
   }
@@ -67,7 +131,7 @@ export class PokerWsGateway
       if (participantsMap) {
         participantsMap.delete(participant.id);
         if (participantsMap.size === 0) {
-          this.participants_in_room.delete(room);
+          this.roomCreationTime.set(room, Date.now());
         }
         this.emitParticipantList(room);
       }
@@ -86,6 +150,8 @@ export class PokerWsGateway
       client.emit('error', { value: 'Missing room' });
       return;
     }
+
+    this.roomCreationTime.delete(room);
 
     const sessionStatus = await this.pokerWsService.checkSessionStatus(room);
     if (sessionStatus && sessionStatus.is_started) {
@@ -108,7 +174,8 @@ export class PokerWsGateway
       return;
     }
 
-    const currentStoryIndex = await this.pokerWsService.getCurrentStoryIndex(room);
+    const currentStoryIndex =
+      await this.pokerWsService.getCurrentStoryIndex(room);
 
     if (!this.roomStates.has(room)) {
       this.roomStates.set(room, { stories, currentStoryIndex });
@@ -124,7 +191,8 @@ export class PokerWsGateway
       client.emit('timer-started', { duration: timer.timeLeft });
     }
 
-    const { currentStoryIndex: roomCurrentStoryIndex } = this.roomStates.get(room);
+    const { currentStoryIndex: roomCurrentStoryIndex } =
+      this.roomStates.get(room);
 
     client.emit('story-changed', {
       story: stories[roomCurrentStoryIndex],
@@ -480,7 +548,6 @@ export class PokerWsGateway
       });
     });
 
-    
     this.leaderOverrides.set(room, true);
 
     this.emitVoteUpdate(room);
@@ -509,7 +576,6 @@ export class PokerWsGateway
       return;
     }
 
-    
     if (!this.hasConsensus(votesMap) && !this.leaderOverrides.get(room)) {
       client.emit('error', {
         value:
@@ -522,7 +588,7 @@ export class PokerWsGateway
       const numericVotes = Array.from(this.votes.get(room).values())
         .map((v) => parseInt(v.value))
         .filter((v) => !isNaN(v));
-      const average = numericVotes[0]; 
+      const average = numericVotes[0];
 
       const votesToSave = Array.from(votesMap.values()).map((vote) => ({
         story_id: stories[currentStoryIndex].id,
@@ -551,7 +617,7 @@ export class PokerWsGateway
 
       roomState.currentStoryIndex = (currentStoryIndex + 1) % stories.length;
       const newIndex = roomState.currentStoryIndex;
-      
+
       await this.pokerWsService.updateCurrentStoryIndex(room, newIndex);
 
       this.wss.to(room).emit('story-changed', {
@@ -612,7 +678,6 @@ export class PokerWsGateway
         card_value: this.roomAvarage.get(room),
         history_date: new Date(),
       };
-      
 
       this.historyByRoom.get(room).push(newRecord);
 
@@ -704,7 +769,7 @@ export class PokerWsGateway
       await this.pokerWsService.startSession(room);
       await this.pokerWsService.updateCurrentStoryIndex(room, 0);
       this.logger.log(`Session started: ${room}`);
-      
+
       this.wss.to(room).emit('session-started', {
         message: 'Session has started',
       });
@@ -714,6 +779,111 @@ export class PokerWsGateway
       });
     } catch (error) {
       client.emit('error', { value: error.message });
+    }
+  }
+
+  @SubscribeMessage('accept-suggestion')
+  async handleAcceptSuggestion(
+    client: Socket,
+    payload: { room: string; points: number; storyId: string },
+  ) {
+    const { room, points, storyId } = payload;
+    const participant = client.data.participant;
+    const roomLeader = await this.pokerWsService.roomCreator(room);
+
+    if (participant.id.toString() !== roomLeader) {
+      client.emit('error', {
+        value: 'Only the room leader can accept AI suggestions',
+      });
+      return;
+    }
+
+    try {
+      const roomState = this.roomStates.get(room);
+      if (!roomState) {
+        client.emit('error', { value: 'Room state not found' });
+        return;
+      }
+
+      const { stories, currentStoryIndex } = roomState;
+      const currentStory = stories[currentStoryIndex];
+
+      if (currentStory.id !== storyId) {
+        client.emit('error', { value: 'Story ID mismatch' });
+        return;
+      }
+
+      // Crear un registro de voto para cada participante con el valor sugerido por la IA
+      const participantsMap = this.participants_in_room.get(room);
+      if (!participantsMap) {
+        client.emit('error', { value: 'No participants found in room' });
+        return;
+      }
+
+      const votesToSave = Array.from(participantsMap.values()).map(
+        (participant) => ({
+          story_id: storyId,
+          user_id: participant.id,
+          card_value: points.toString(),
+          final_value: points.toString(),
+        }),
+      );
+
+      // Guardar los votos en la base de datos
+      await this.pokerWsService.saveVote(votesToSave, room);
+
+      // Actualizar el historial de la sala
+      if (!this.historyByRoom.has(room)) {
+        this.historyByRoom.set(room, []);
+      }
+
+      const newRecord = {
+        story_title: currentStory.title,
+        story_id: storyId,
+        card_value: points,
+        history_date: new Date(),
+      };
+
+      this.historyByRoom.get(room).push(newRecord);
+
+      const fullHistory = this.historyByRoom.get(room);
+      this.wss.to(room).emit('voting-history-updated', fullHistory);
+
+      this.wss.to(room).emit('suggestion-accepted', {
+        storyId,
+        points,
+      });
+
+      this.votes.delete(room);
+      this.leaderOverrides.delete(room);
+
+      // Verificar si es la última historia
+      const isLastStory = currentStoryIndex === stories.length - 1;
+
+      if (isLastStory) {
+        // Si es la última historia, finalizar la sesión
+        await this.handleEndSession(client, room);
+      } else {
+        // Si no es la última historia, continuar con la siguiente
+        const newIndex = currentStoryIndex + 1;
+        roomState.currentStoryIndex = newIndex;
+
+        await this.pokerWsService.updateCurrentStoryIndex(room, newIndex);
+
+        this.wss.to(room).emit('story-changed', {
+          story: stories[newIndex],
+          isLast: newIndex === stories.length - 1,
+        });
+
+        this.wss.to(room).emit('voting-repeated', {
+          value: 'Voting has been reset',
+        });
+      }
+
+      client.emit('success', { value: 'AI suggestion accepted successfully' });
+    } catch (error) {
+      this.logger.error(`Error accepting AI suggestion: ${error}`);
+      client.emit('error', { value: 'Failed to accept AI suggestion' });
     }
   }
 }

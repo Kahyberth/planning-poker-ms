@@ -9,7 +9,7 @@ import {
 import { Session } from './session.entity';
 
 @Entity()
-@Unique(['story_id', 'user_id'])
+@Unique(['story_id', 'user_id', 'session'])
 export class Vote {
   @PrimaryGeneratedColumn('uuid')
   vote_id: string;

@@ -123,6 +123,9 @@ export class PokerService {
     }
   }
 
+
+
+
   
 
   private async findProjectSessions(project_id: string) {
@@ -340,5 +343,38 @@ export class PokerService {
       message: 'Session info fetched successfully',
       data: session,
     };
+  }
+
+  async getSessionsByProject(project_id: string) {
+    try {
+      const [project] = await this.findProjectSessions(project_id);
+
+      if (!project) {
+        throw new RpcException({
+          message: 'Project not found',
+          code: HttpStatus.NOT_FOUND,
+        });
+      }
+
+      const sessions = await this.sessionRepository.find({
+        where: {
+          project_id,
+          is_active: true,
+        },
+        relations: ['join_session'],
+      });
+
+      return {
+        message: 'Project sessions fetched successfully',
+        data: sessions,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new RpcException({
+        message: 'Error fetching project sessions',
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
   }
 }

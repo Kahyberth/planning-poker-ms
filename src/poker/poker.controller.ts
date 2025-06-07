@@ -65,6 +65,12 @@ export class PokerController {
   }
 
 
+  @MessagePattern('poker.get.session.by.project.id')
+  getSessionByProjectId(@Payload() project_id: string) {
+    return this.pokerService.getSessionsByProject(project_id);
+  }
+
+
 
   @MessagePattern('poker.ping')
   ping() {
