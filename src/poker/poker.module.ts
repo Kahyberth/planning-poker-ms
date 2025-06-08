@@ -10,7 +10,7 @@ import { Vote } from './entities/vote.entity';
 import { PokerController } from './poker.controller';
 import { PokerService } from './poker.service';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { envs } from 'src/commons/envs';
+import { envs } from '../commons/envs';
 
 @Module({
   controllers: [PokerController],
