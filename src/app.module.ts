@@ -1,10 +1,10 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { envs } from './commons/envs';
 import { EstimationService } from './estimation/estimation.service';
 import { PokerWsModule } from './poker-ws/poker-ws.module';
 import { PokerModule } from './poker/poker.module';
-import { envs } from './commons/envs';
 
 @Module({
   imports: [
@@ -21,11 +21,6 @@ import { envs } from './commons/envs';
       password: envs.DB_PASSWORD,
       database: envs.DB_DATABASE,
       synchronize: true,
-      extra: {
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      },
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
     }),
   ],
