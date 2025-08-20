@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Chat } from '../poker/entities/chat.entity';
 import { Decks } from '../poker/entities/decks.entity';
@@ -31,6 +32,7 @@ export class PokerWsService {
     private readonly pokerService: PokerService,
 
     private readonly dataSource: DataSource,
+    @Inject('NATS_SERVICE') private readonly client: ClientProxy,
   ) {}
 
   private readonly logger = new Logger(PokerWsService.name);
@@ -168,6 +170,27 @@ export class PokerWsService {
 
     session.is_active = false;
     await this.sessionRepository.save(session);
+  }
+
+  async updateIssuePoints(issueId: string, points: number, userId: string) {
+    try {
+      const payload = { id: issueId, updateDto: { story_points: points, userId } };
+      // Fire and forget; if desired we can await for confirmation
+      await import('rxjs').then(async ({ firstValueFrom, catchError }) => {
+        const { of, throwError } = await import('rxjs');
+        await firstValueFrom(
+          this.client.send('issue.update', payload).pipe(
+            catchError((err) => {
+              this.logger.error(`Failed to update issue ${issueId} story points: ${err?.message || err}`);
+              return throwError(() => new BadRequestException('Failed to update issue story points'));
+            }),
+          ),
+        );
+      });
+    } catch (error) {
+      this.logger.error(`Error updating issue points for ${issueId}: ${error}`);
+      // Do not throw to avoid breaking the session flow
+    }
   }
 
   async saveChatMessage(

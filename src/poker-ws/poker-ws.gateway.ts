@@ -588,16 +588,25 @@ export class PokerWsGateway
       const numericVotes = Array.from(this.votes.get(room).values())
         .map((v) => parseInt(v.value))
         .filter((v) => !isNaN(v));
-      const average = numericVotes[0];
+      const finalPoints = numericVotes[0];
+
+      const storyId = stories[currentStoryIndex].id;
 
       const votesToSave = Array.from(votesMap.values()).map((vote) => ({
-        story_id: stories[currentStoryIndex].id,
+        story_id: storyId,
         user_id: vote.participant.id,
         card_value: vote.value,
-        final_value: average.toString(),
+        final_value: finalPoints.toString(),
       }));
 
       await this.pokerWsService.saveVote(votesToSave, room);
+
+      // Update real issue story points in projects-ms
+      await this.pokerWsService.updateIssuePoints(
+        storyId,
+        finalPoints,
+        client.data.participant.id,
+      );
 
       if (!this.historyByRoom.has(room)) {
         this.historyByRoom.set(room, []);
@@ -605,8 +614,8 @@ export class PokerWsGateway
 
       const newRecord = {
         story_title: stories[currentStoryIndex].title,
-        story_id: stories[currentStoryIndex].id,
-        card_value: average,
+        story_id: storyId,
+        card_value: finalPoints,
         history_date: new Date(),
       };
 
@@ -672,9 +681,11 @@ export class PokerWsGateway
       const votesMap = this.votes.get(room);
       const { stories, currentStoryIndex } = roomState;
 
+      const storyIdFinal = stories[currentStoryIndex].id;
+
       const newRecord = {
         story_title: stories[currentStoryIndex].title,
-        story_id: stories[currentStoryIndex].id,
+        story_id: storyIdFinal,
         card_value: this.roomAvarage.get(room),
         history_date: new Date(),
       };
@@ -689,13 +700,20 @@ export class PokerWsGateway
         numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length;
 
       const votesToSave = Array.from(votesMap.values()).map((vote) => ({
-        story_id: stories[currentStoryIndex].id,
+        story_id: storyIdFinal,
         user_id: vote.participant.id,
         card_value: vote.value,
         final_value: average.toString(),
       }));
 
       await this.pokerWsService.saveVote(votesToSave, room);
+
+      // Update the last story's points in projects-ms as well
+      await this.pokerWsService.updateIssuePoints(
+        storyIdFinal,
+        Math.round(average),
+        client.data.participant.id,
+      );
 
       const history = this.historyByRoom.get(room);
       if (history) {
@@ -831,6 +849,13 @@ export class PokerWsGateway
 
       // Guardar los votos en la base de datos
       await this.pokerWsService.saveVote(votesToSave, room);
+
+      // Update real issue's points using projects-ms
+      await this.pokerWsService.updateIssuePoints(
+        storyId,
+        points,
+        client.data.participant.id,
+      );
 
       // Actualizar el historial de la sala
       if (!this.historyByRoom.has(room)) {

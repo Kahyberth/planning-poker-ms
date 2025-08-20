@@ -9,6 +9,8 @@ import { Join_Session } from '../poker/entities/join.session.entity';
 import { Decks } from '../poker/entities/decks.entity';
 import { History } from '../poker/entities/history.entity';
 import { PokerModule } from '../poker/poker.module';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { envs } from '../commons/envs';
 
 @Module({
   providers: [PokerWsGateway, PokerWsService],
@@ -22,6 +24,15 @@ import { PokerModule } from '../poker/poker.module';
       History,
     ]),
     PokerModule,
+    ClientsModule.register([
+      {
+        name: 'NATS_SERVICE',
+        transport: Transport.NATS,
+        options: {
+          servers: envs.NATS_SERVERS,
+        },
+      },
+    ]),
   ],
 })
 export class PokerWsModule {}

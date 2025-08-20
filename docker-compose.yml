@@ -1,9 +1,11 @@
 services:
+
   postgres:
-    image: postgres
+    image: postgres:16
+    container_name: planning-poker-ms-postgres
     ports:
-      - 5432:5432
+      - "5435:5432"
     environment:
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=poker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: planning-poker-ms
